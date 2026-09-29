@@ -11,12 +11,12 @@ if not doc:
 # ==========================================
 # PARAMETRE
 # ==========================================
-num_slots = 5             # 5 magasinplasser
+num_slots = 7             # 5 magasinplasser
 slot_width = 25.5         # Glock double-stack bredde (mm)
 divider_thickness = 7.0   # Skilleveggtykkelse / bladbredde (mm)
 rack_depth = 38.0         # Dybde på veggene/bladene (mm)
 rack_height = 55.0        # Høyde på bakplaten (mm)
-back_thickness = 6.0      # Tykkelse på bakplaten (mm)
+back_thickness = 6      # Tykkelse på bakplaten (mm)
 
 # Skådis-spesifikasjon & Krok-parametre
 board_t = 5.0          # Skådis platetykkelse
@@ -27,7 +27,7 @@ drop = 4.8             # Låsetapp-lengde nedover
 tab_root_t = 5.0       # Tapered rot
 tab_tip_t = 5.0        # Tapered spiss
 lead_chamfer = 2.5     # Fasing
-num_pegs = 3           # 3 kroker
+num_pegs = 5           # 3 kroker
 peg_pitch = 40.0       # Skådis modulavstand
 
 # Blad-vinkel og geometri
@@ -78,14 +78,18 @@ back_plate = fillet_box_corners(back_plate, total_width, back_thickness, edge_fi
 shapes.append(back_plate)
 
 # ==========================================
-# 2. BLADER MED FULL-HØYDE TRAKT OG AVRUNDEDE YTTERKANTER
+# 2. BLADER MED FULL-HØYDE TRAKT OG RENKSJÆRING I BUNN OG BAK
 # ==========================================
 tilt_rad = math.radians(blade_tilt_deg)
-wedge_extra_y = (rack_height * math.tan(tilt_rad)) + 5.0  
+wedge_extra_y = (rack_height * math.tan(tilt_rad)) + 10.0  
 
 # Kutteboks for å renskjære alt som måtte stikke ut BAK bakplaten (Y < 0)
-rear_cutter = Part.makeBox(total_width + 20.0, wedge_extra_y + 20.0, rack_height + 40.0)
-rear_cutter.translate(Vector(-10.0, -(wedge_extra_y + 20.0), -20.0))
+rear_cutter = Part.makeBox(total_width + 100.0, 100.0, rack_height + 200.0)
+rear_cutter.translate(Vector(-50.0, -100.0, -50.0))
+
+# Kutteboks for å renskjære alt som måtte stikke ut UNDER bunnen (Z < 0)
+bottom_cutter = Part.makeBox(total_width + 100.0, rack_depth + wedge_extra_y + 100.0, 100.0)
+bottom_cutter.translate(Vector(-50.0, -50.0, -100.0))
 
 def create_flared_blade_solid(x_pos, is_leftmost, is_rightmost):
     """Bygger 2D-profilen av et blad med traktutvidelse i fronten og ekstruderer fra topp til bunn."""
@@ -114,7 +118,6 @@ def create_flared_blade_solid(x_pos, is_leftmost, is_rightmost):
         Vector(x_l_back, y_back, 0)
     ]
 
-    # Fjern dupliserte/kolineære punkter dersom flare_l eller flare_r er 0
     clean_pts = [pts[0]]
     for p in pts[1:]:
         if (p - clean_pts[-1]).Length > 0.001:
@@ -127,7 +130,6 @@ def create_flared_blade_solid(x_pos, is_leftmost, is_rightmost):
         target_edges = []
         for e in poly.Edges:
             v1, v2 = e.Vertexes[0].Point, e.Vertexes[-1].Point
-            # Velg kanter som ligger i fremre del av bladet (fra flare-start og fremover)
             if v1.y > y_flare - 0.1 or v2.y > y_flare - 0.1:
                 target_edges.append(e)
 
@@ -139,7 +141,6 @@ def create_flared_blade_solid(x_pos, is_leftmost, is_rightmost):
                 App.Console.PrintWarning("2D Fillet hoppet over: %s\n" % err)
 
     face = Part.Face(poly)
-    # Ekstruder i full høyde fra bunn til topp (Z = 0 til Z = rack_height)
     return face.extrude(Vector(0, 0, rack_height))
 
 for i in range(num_slots + 1):
@@ -182,8 +183,8 @@ for i in range(num_slots + 1):
     if blade_tilt_deg:
         blade.rotate(Vector(0, back_thickness, rack_height), Vector(1, 0, 0), blade_tilt_deg)
 
-    # --- 2f. RENKSJÆRING: Kutt bort alt som stikker ut bak bakplaten (Y < 0) ---
-    blade = blade.cut(rear_cutter)
+    # --- 2f. RENKSJÆRING: Kutt bort alt som stikker ut bak bakplaten (Y < 0) og under bunnen (Z < 0) ---
+    blade = blade.cut(rear_cutter).cut(bottom_cutter)
 
     shapes.append(blade)
 
