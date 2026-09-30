@@ -23,7 +23,7 @@ col_height = 2.0          # Column height above base flare
 # Skådis Top Peg
 peg_width = 4.8            # Width (fits 5 mm Skådis slot)
 peg_length = 14.5          # Length (fits 15 mm Skådis slot)
-peg_height = 5.2           # Peg height
+peg_height = 5.3           # Peg height
 peg_notch_w = 3.2          # Cross-slot notch width
 
 # Cutouts & Holes
