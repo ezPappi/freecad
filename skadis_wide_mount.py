@@ -12,8 +12,8 @@ if not doc:
 # PARAMETERS
 # ==========================================
 # Base / Flared Skirt
-base_width = 48.0          # Base length & width (mm)
-base_corner_r = 6.0        # Corner fillet radius
+base_width = 38.0          # Base length & width (mm)
+base_corner_r = 10.0        # Corner fillet radius
 flare_height = 3.0         # Height of the flared base transition
 
 # Center Column
@@ -23,12 +23,12 @@ col_height = 2.0          # Column height above base flare
 # Skådis Top Peg
 peg_width = 4.8            # Width (fits 5 mm Skådis slot)
 peg_length = 14.5          # Length (fits 15 mm Skådis slot)
-peg_height = 5.0           # Peg height
+peg_height = 5.2           # Peg height
 peg_notch_w = 3.2          # Cross-slot notch width
 
 # Cutouts & Holes
 center_hole_dia = 4.5      # Through-hole diameter (e.g., M4)
-counterbore_dia = 8.5      # Top recess diameter
+counterbore_dia = 4.5      # Top recess diameter
 counterbore_depth = 3.5    # Recess depth
 mounting_hole_dia = 2.5    # 4x mounting holes in flared skirt
 mounting_hole_pos = 16.0   # Offset from center for mounting holes
