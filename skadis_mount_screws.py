@@ -21,7 +21,7 @@ corner_hex_size = 2.0         # Allen key drive size (2.0 mm hex)
 # 1x Center Screw (fits 4.5 mm hole)
 center_screw_dia = 4.3        # Outer thread diameter (0.2 mm clearance for Ø4.5mm hole)
 center_screw_pitch = 1.0      # Coarse printable pitch
-center_screw_length = 12.0    # Thread shank length
+center_screw_length = 10.3    # Thread shank length
 center_head_dia = 7.5         # Head diameter
 center_head_h = 3.0           # Head height
 center_hex_size = 3.0         # Allen key drive size (3.0 mm hex)
