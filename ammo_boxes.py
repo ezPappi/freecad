@@ -1,6 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Ammunisjonsboks v2.3 for FreeCAD 1.x
+Ammunisjonsboks v2.6 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
+
+Nytt i v2.6: kratemålene er rettet etter nye målinger (se kalibertabellen: lengde 79,30 mm,
+hullavstand 7,93 x 7,43 mm, hull 6,4 mm). Resten er som v2.5 (bygger på v2.4, etter bildet av kraten):
+ - Patronene står med BULLET NED og kanten (rim) opp, og henger i kraten på
+   rimen. Hullene under kraten er derfor dype nok til å romme kulene, og
+   dybden regnes ut automatisk (oal - rimtykkelse - kratetykkelse + luft).
+ - Kraten ligger oppå hullblokken og får flukt med hullene i boksen.
+ - Hullavstanden utledes fra kraten: lengde/antall og bredde/antall
+   (22LR: 7,13 x 7,43 mm). Kan overstyres med CRATE_PITCH_X / CRATE_PITCH_Y.
+ - Stagger (annenhver rad høyere) slås av når kraten brukes, fordi grunnere
+   hull ville hindret kraten i å sitte plant.
+ - Fingerspor i den ene langveggen, slik at kraten kan klemmes og løftes ut.
+ - Gulvet i boksen er alltid BOTTOM_T (2 mm).
 """
 
 import FreeCAD as App
@@ -18,25 +31,39 @@ TEXT_DEPTH = 0.8       # Dybde på innfrest tekst
 TEXT_SIZE = 10.0       # Tekststørrelse
 FONT_FILE = ""         # Full sti til .ttf, tom = auto
 
-BOX_OVERRIDE = None        # (lengde, bredde, høyde) på originaleska
-HOLE_D_OVERRIDE = None     # Hulldiameter
+BOX_OVERRIDE = None        # (lengde, bredde, høyde) på originaleska (brukes ikke når kratemål er aktive)
+HOLE_D_OVERRIDE = None     # Hulldiameter (22LR: 6.2; prøv 6.0 hvis veggene mellom hullene blir for tynne)
 NUM_HOLES_OVERRIDE = None  # Antall hull per rad; None = auto
+
+# CCI-krate (flat plate med 50 hull som patronene står i)
+USE_CRATE = True            # True: eskerommet tilpasses kraten (mål i kalibertabellen under)
+CRATE_CLEARANCE = 0.3       # luft rundt kraten, per side (mm)
+CRATE_HOLE_OFFSET_X = 0.0   # flytt hullmønsteret langs lengden hvis hullene ikke flukter helt (mm)
+CRATE_HOLE_OFFSET_Y = 0.0   # flytt hullmønsteret langs bredden (mm)
+CRATE_PITCH_X = None        # hullavstand langs lengden; None = kratelengde / antall hull
+CRATE_PITCH_Y = None        # hullavstand langs bredden; None = kratebredde / antall hull
 
 # 1. Eskerom (50 skudd)
 POCKETS_IN_CAVITY = True
-CAVITY_FLOOR_RAISE = 13.0  # Hev bunnen i eskerommet (for bruk uten/med CCI-ramme)
-POCKET_DEPTH = 13.0        # Dybde på de LAVE radene i eskerommet
-STAGGER = 3.0              # Hvor mye høyere hver annen rad står
+CAVITY_FLOOR_RAISE = None  # Høyde på hullblokken. None = auto (= hulldybden, gulvet under er alltid BOTTOM_T)
+POCKET_DEPTH = None        # Hulldybde. None = auto: krate -> kulene får plass; uten krate -> 13 mm
+POCKET_TIP_CLEARANCE = 0.6 # luft under kulespissen når kraten ligger på blokken
+STAGGER = 3.0              # Hvor mye høyere hver annen rad står (brukes IKKE når kraten er aktiv)
 RAISED_ROW_PARITY = 1      # 1 = rad 2, 4, ... står høyest; 0 = rad 1, 3, 5, ...
+
+# Fingerspor i langveggen for å løfte ut kraten
+FINGER_NOTCH = True
+NOTCH_W = 14.0
+NOTCH_DEPTH = 1.6          # inn i veggen (ytterveggen beholder minst 1,4 mm)
 
 # 2. Den 6. ekstra raden (10 skudd)
 # Hvor mange mm av patronen som skal stikke opp over sin indre hylle:
-STRIP_EXPOSED_HEIGHT = 2.0 
+STRIP_EXPOSED_HEIGHT = 2.0
 
 # Fileter / faser
 OUTER_FILLET = 3.0         # Avrunding på lukkede hjørner
 EDGE_CHAMFER = 0.8         # Fase topp/bunn
-HOLE_CHAMFER = 0.6         # Innløpsfase på hull
+HOLE_CHAMFER = 0.6         # Innløpsfase på hull (reduseres automatisk ved tett hullavstand)
 LID_CHAMFER = 0.6          # Fase på toppen av lokket
 
 # Lokkets "klikk"
@@ -49,14 +76,19 @@ EXPORT_DIR = ""            # Sti for STL-eksport, tom = ingen
 
 # ----------------------------------------------------------------------------
 # KALIBERTABELL (mm)
+#   crate = mål på kraten patronene henger i (L, W, T = tykkelse, cols x rows = antall hull;
+#           hullavstand utledes som L/cols og W/rows). Kun 22LR er definert.
+#   rim_t = rimtykkelse (standard 1.2 mm hvis ikke oppgitt)
 # ----------------------------------------------------------------------------
 CALIBERS = {
-    "22LR":   dict(label="22LR",    rim=7.1,   oal=25.4, hole_d=6.2,  box=(98.0, 48.0, 26.0),  box_est=False),
+    "22LR":   dict(label="22LR",    rim=7.1,   oal=25.4, hole_d=6.4,  box=(98.0, 48.0, 26.0),  box_est=False,
+                   rim_t=1.1,
+                   crate=dict(L=79.30, W=37.15, T=3.25, cols=10, rows=5)),  # L: var 71.30, men målt vegg/rimglipe tilsier ca. 79.3 - KONTROLLMÅL
     "9MM":    dict(label="9MM",     rim=9.96,  oal=29.7, hole_d=None, box=(118.0, 62.0, 34.0), box_est=True),
     "357MAG": dict(label="357 MAG", rim=11.18, oal=40.4, hole_d=None, box=(125.0, 63.0, 40.0), box_est=True),
-    "38SPL":  dict(label="38 SPL", rim=11.2,  oal=39.4, hole_d=None, box=(125.0, 63.0, 40.0), box_est=True),
-    "40SW":   dict(label="40 S&W", rim=10.8,  oal=28.8, hole_d=None, box=(118.0, 62.0, 34.0), box_est=True),
-    "45ACP":  dict(label="45 ACP", rim=12.2,  oal=32.4, hole_d=None, box=(125.0, 68.0, 38.0), box_est=True),
+    "38SPL":  dict(label="38 SPL",  rim=11.2,  oal=39.4, hole_d=None, box=(125.0, 63.0, 40.0), box_est=True),
+    "40SW":   dict(label="40 S&W",  rim=10.8,  oal=28.8, hole_d=None, box=(118.0, 62.0, 34.0), box_est=True),
+    "45ACP":  dict(label="45 ACP",  rim=12.2,  oal=32.4, hole_d=None, box=(125.0, 68.0, 38.0), box_est=True),
     "10MM":   dict(label="10MM",    rim=10.8,  oal=32.0, hole_d=None, box=(120.0, 62.0, 36.0), box_est=True),
     "223":    dict(label="223 REM", rim=9.6,   oal=57.4, hole_d=None, box=(150.0, 70.0, 64.0), box_est=True),
     "6.5X55": dict(label="6.5x55",  rim=12.2,  oal=80.0, hole_d=12.6, box=(165.0, 85.0, 85.0), box_est=True),
@@ -83,35 +115,78 @@ RAIL_H = 2.2
 GRIP_R = 8.0
 GRIP_DEPTH = 1.2
 
-CCI_LENGTH, CCI_WIDTH, CCI_HEIGHT = BOX_OVERRIDE if BOX_OVERRIDE else C["box"]
-
 HOLE_D = HOLE_D_OVERRIDE or C["hole_d"] or round(C["rim"] + 0.4, 1)
-PITCH = HOLE_D + 3.0
 EXTRA_WIDTH = HOLE_D + 2.0
 
-NUM_COLS = NUM_HOLES_OVERRIDE or int((CCI_LENGTH - HOLE_D) / PITCH + 1e-6) + 1
-NUM_ROWS = int((CCI_WIDTH - HOLE_D) / PITCH + 1e-6) + 1
+CRATE = C.get("crate") if USE_CRATE else None
+RIM_T = C.get("rim_t", 1.2)
 
-# Beregn effektiv gulvhøyde i eskerommet
-FLOOR_Z = BOTTOM_T + CAVITY_FLOOR_RAISE
+if CRATE:
+    # Eskerommet = krate + luft. Hullmønsteret hentes fra kraten.
+    CCI_LENGTH = CRATE["L"] + 2 * CRATE_CLEARANCE
+    CCI_WIDTH = CRATE["W"] + 2 * CRATE_CLEARANCE
+    CCI_HEIGHT = CRATE["T"]               # kraten er en flat plate
+    NUM_COLS = NUM_HOLES_OVERRIDE or CRATE["cols"]
+    NUM_ROWS = CRATE["rows"]
+    PITCH_X = CRATE_PITCH_X or CRATE["L"] / CRATE["cols"]
+    PITCH_Y = CRATE_PITCH_Y or CRATE["W"] / CRATE["rows"]
+else:
+    CCI_LENGTH, CCI_WIDTH, CCI_HEIGHT = BOX_OVERRIDE if BOX_OVERRIDE else C["box"]
+    PITCH_X = PITCH_Y = HOLE_D + 3.0
+    NUM_COLS = NUM_HOLES_OVERRIDE or int((CCI_LENGTH - HOLE_D) / PITCH_X + 1e-6) + 1
+    NUM_ROWS = int((CCI_WIDTH - HOLE_D) / PITCH_Y + 1e-6) + 1
+
+# Veggtykkelse mellom hull og innløpsfase ved tett hullavstand
+_wall_between = min(PITCH_X, PITCH_Y) - HOLE_D
+if _wall_between < 1.0:
+    App.Console.PrintWarning(
+        "Veggen mellom hullene er bare %.2f mm (hull %.1f mm). "
+        "Vurder HOLE_D_OVERRIDE (f.eks. %.1f) for sterkere vegger.\n"
+        % (_wall_between, HOLE_D, HOLE_D - 0.2))
+if min(PITCH_X, PITCH_Y) < C["rim"]:
+    App.Console.PrintWarning(
+        "Hullavstanden (%.2f mm) er mindre enn rimdiameteren (%.1f mm) - rimene overlapper.\n"
+        % (min(PITCH_X, PITCH_Y), C["rim"]))
+HOLE_CHAMFER_E = min(HOLE_CHAMFER, (_wall_between - 0.6) / 2.0)
+if HOLE_CHAMFER_E < 0.2:
+    HOLE_CHAMFER_E = 0.0                  # for tett til fase - hoppes over
+
+# Hulldybde og høyde på hullblokken
+if CRATE:
+    # Patronen henger i kraten på rimen: lengde under kratens overside = oal - rimtykkelse.
+    # Kraten ligger oppå blokken, så kulespissen stikker (oal - rim_t - T) under blokkens topp.
+    _auto_depth = C["oal"] - RIM_T - CRATE["T"] + POCKET_TIP_CLEARANCE
+else:
+    _auto_depth = 13.0
+POCKET_DEPTH_E = POCKET_DEPTH or _auto_depth
+FLOOR_RAISE = CAVITY_FLOOR_RAISE or POCKET_DEPTH_E
+FLOOR_Z = BOTTOM_T + FLOOR_RAISE          # toppen av hullblokken. Gulvet under hullene = BOTTOM_T.
 
 MIN_FLOOR_UNDER_POCKET = 1.5
 _max_depth = FLOOR_Z - MIN_FLOOR_UNDER_POCKET
-if POCKET_DEPTH > _max_depth:
-    POCKET_DEPTH_E = max(_max_depth, 2.0)
+if POCKET_DEPTH_E > _max_depth:
     App.Console.PrintWarning(
-        "POCKET_DEPTH %.1f mm er justert til %.1f mm basert på CAVITY_FLOOR_RAISE.\n"
-        % (POCKET_DEPTH, POCKET_DEPTH_E))
-else:
-    POCKET_DEPTH_E = POCKET_DEPTH
+        "Hulldybden %.1f mm er justert til %.1f mm (CAVITY_FLOOR_RAISE %.1f).\n"
+        % (POCKET_DEPTH_E, _max_depth, FLOOR_RAISE))
+    POCKET_DEPTH_E = max(_max_depth, 2.0)
+if CRATE and POCKET_DEPTH_E < _auto_depth - 0.05:
+    App.Console.PrintWarning(
+        "Hullene er for grunne (%.1f mm, trenger %.1f mm): kuleenden vil treffe bunnen og "
+        "kraten får ikke sitte plant.\n" % (POCKET_DEPTH_E, _auto_depth))
 
-RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER, 2.0)
+STAGGER_E = 0.0 if CRATE else STAGGER
+if CRATE and STAGGER:
+    App.Console.PrintMessage("Stagger er slått av fordi kraten brukes (alle rader like dype).\n")
+RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER_E, 2.0)
 
 # Dybde og nedsenking for den 6. raden
 STRIP_HOLE_DEPTH = max(C["oal"] - STRIP_EXPOSED_HEIGHT, 5.0)
 STRIP_STEP_DOWN = STRIP_EXPOSED_HEIGHT + 0.5  # Senk skillevegg og hylle slik at lokket går over
 
-CAV_H = max(CCI_HEIGHT - CAVITY_FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
+if CRATE:
+    CAV_H = CRATE["T"] + RIM_T + 1.0      # krate + rim + 1 mm luft under lokket
+else:
+    CAV_H = max(CCI_HEIGHT - FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
 HOLE_DEPTH = round(C["oal"] + LID_THICKNESS + 0.5, 1)
 
 OUTER_L = CCI_LENGTH + 2 * WALL_T
@@ -122,6 +197,18 @@ OUTER_H = max(FLOOR_Z + CAV_H + LID_THICKNESS, HOLE_DEPTH + 2.0)
 Z_SLOT = OUTER_H - LID_THICKNESS
 ZB = Z_SLOT + CLEARANCE
 GRIP_X = OUTER_L - 15.0
+
+App.Console.PrintMessage(
+    "Kaliber %s: hull %.1f mm, %d x %d (avstand %.2f x %.2f mm) + %d på rad 6, "
+    "ytre mål %.1f x %.1f x %.1f mm\n"
+    % (CALIBER, HOLE_D, NUM_COLS, NUM_ROWS, PITCH_X, PITCH_Y, NUM_COLS, OUTER_L, OUTER_W, OUTER_H))
+if CRATE:
+    App.Console.PrintMessage(
+        "Eskerom %.2f x %.2f mm (krate %.2f x %.2f + %.1f mm luft). Hulldybde %.1f mm, "
+        "blokktopp z=%.1f. Med krate stikker rimen %.1f mm opp over kraten; uten krate stikker "
+        "patronen %.1f mm opp over blokken.\n"
+        % (CCI_LENGTH, CCI_WIDTH, CRATE["L"], CRATE["W"], CRATE_CLEARANCE,
+           POCKET_DEPTH_E, FLOOR_Z, RIM_T, C["oal"] - POCKET_DEPTH_E))
 
 # ----------------------------------------------------------------------------
 # HJELPEFUNKSJONER
@@ -164,7 +251,7 @@ box_outer = try_op("Fase bunn", lambda s: s.makeChamfer(
 box_outer = try_op("Fase topp", lambda s: s.makeChamfer(
     EDGE_CHAMFER, [e for e in s.Edges if all_at(e, "Z", OUTER_H)]), box_outer)
 
-# Eskerommet (50 skudd)
+# Eskerommet (krate / 50 skudd)
 cavity = Part.makeBox(CCI_LENGTH, CCI_WIDTH, OUTER_H - FLOOR_Z + 1.0,
                       V(WALL_T, WALL_T, FLOOR_Z))
 
@@ -172,15 +259,13 @@ cavity = Part.makeBox(CCI_LENGTH, CCI_WIDTH, OUTER_H - FLOOR_Z + 1.0,
 slot = Part.makeBox(OUTER_L - WALL_T + 1.0, INNER_W, LID_THICKNESS + 1.0,
                     V(WALL_T, WALL_T, Z_SLOT))
 
-# *** NEDSENKING AV INDRE SKILLEVEGG OG HYLLE (Ytterveggen forblir hel) ***
-# Start Y: fra den indre skilleveggen (WALL_T + CCI_WIDTH)
-# Slutt Y: ut til INNER_W (før den ytre veggen som starter på WALL_T + INNER_W)
+# Nedsenking av indre skillevegg og hylle (ytterveggen forblir hel)
 y_divider_start = WALL_T + CCI_WIDTH
 width_to_cut = DIVIDER_T + EXTRA_WIDTH
 
 divider_cutout = Part.makeBox(
-    CCI_LENGTH, 
-    width_to_cut, 
+    CCI_LENGTH,
+    width_to_cut,
     STRIP_STEP_DOWN,
     V(WALL_T, y_divider_start, Z_SLOT - STRIP_STEP_DOWN)
 )
@@ -201,32 +286,40 @@ groove_right = prism_yz(mirror_y(groove_l), WALL_T, groove_len)
 
 box_shape = box_outer.cut(cavity).cut(slot).cut(divider_cutout).cut(groove_left).cut(groove_right)
 
+# Fingerspor i langveggen (y = 0-siden) så kraten kan klemmes og løftes ut
+if FINGER_NOTCH:
+    notch = Part.makeBox(NOTCH_W, NOTCH_DEPTH + 0.5, Z_SLOT - FLOOR_Z,
+                         V(WALL_T + (CCI_LENGTH - NOTCH_W) / 2.0, WALL_T - NOTCH_DEPTH, FLOOR_Z))
+    box_shape = box_shape.cut(notch)
+
 # ----------------------------------------------------------------------------
 # PATRONHULL GENERERING
 # ----------------------------------------------------------------------------
-x_start = WALL_T + (CCI_LENGTH - (NUM_COLS - 1) * PITCH) / 2.0
-y_start = WALL_T + (CCI_WIDTH - (NUM_ROWS - 1) * PITCH) / 2.0
+x_start = WALL_T + (CCI_LENGTH - (NUM_COLS - 1) * PITCH_X) / 2.0 + CRATE_HOLE_OFFSET_X
+y_start = WALL_T + (CCI_WIDTH - (NUM_ROWS - 1) * PITCH_Y) / 2.0 + CRATE_HOLE_OFFSET_Y
 y_strip = y_divider_start + DIVIDER_T + EXTRA_WIDTH / 2.0
 r_hole = HOLE_D / 2.0
 DOWN = V(0, 0, -1)
 
 def make_hole_tool(x, y, z_top, depth):
     cyl = Part.makeCylinder(r_hole, depth + 0.5, V(x, y, z_top - depth), V(0, 0, 1))
-    cone = Part.makeCone(r_hole + HOLE_CHAMFER, r_hole, HOLE_CHAMFER, V(x, y, z_top), DOWN)
-    return cyl.fuse(cone)
+    if HOLE_CHAMFER_E > 0.0:
+        cone = Part.makeCone(r_hole + HOLE_CHAMFER_E, r_hole, HOLE_CHAMFER_E, V(x, y, z_top), DOWN)
+        return cyl.fuse(cone)
+    return cyl
 
 tools = []
-# Ekstra 6. rad: Bores fra den nedsenkede hylla
+# Ekstra 6. rad: bores fra den nedsenkede hylla
 z_strip_top = Z_SLOT - STRIP_STEP_DOWN
 for i in range(NUM_COLS):
-    tools.append(make_hole_tool(x_start + i * PITCH, y_strip, z_strip_top, STRIP_HOLE_DEPTH))
+    tools.append(make_hole_tool(x_start + i * PITCH_X, y_strip, z_strip_top, STRIP_HOLE_DEPTH))
 
 # Hull i eskerommet (på den hevede sokkelen)
 if POCKETS_IN_CAVITY:
     for r in range(NUM_ROWS):
         depth = RAISED_DEPTH if (r % 2) == RAISED_ROW_PARITY else POCKET_DEPTH_E
         for i in range(NUM_COLS):
-            tools.append(make_hole_tool(x_start + i * PITCH, y_start + r * PITCH, FLOOR_Z, depth))
+            tools.append(make_hole_tool(x_start + i * PITCH_X, y_start + r * PITCH_Y, FLOOR_Z, depth))
 
 try:
     box_shape = box_shape.cut(Part.makeCompound(tools))
@@ -381,4 +474,12 @@ try:
 except Exception:
     pass
 
-App.Console.PrintMessage("Ammunisjonsboks ferdig generert med hel yttervegg og senket skillevegg.\n")
+if EXPORT_DIR:
+    try:
+        import Mesh
+        Mesh.export([obj_box], os.path.join(EXPORT_DIR, "ammoboks_%s_kropp.stl" % CALIBER))
+        Mesh.export([obj_lid], os.path.join(EXPORT_DIR, "ammoboks_%s_lokk.stl" % CALIBER))
+    except Exception as e:
+        App.Console.PrintError("STL-eksport feilet: %s\n" % e)
+
+App.Console.PrintMessage("Ferdig. Boks for %s generert.\n" % CALIBER)
