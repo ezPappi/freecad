@@ -1,12 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Ammunisjonsboks v2.3 for FreeCAD 1.x
-
-Nytt i v2.3:
- - Ytterveggen på boksen er HEL og intakt.
- - Den indre skilleveggen (DIVIDER_T) senkes med STRIP_STEP_DOWN.
- - Den 6. raden har en nedsenket hylle slik at 8 mm av patronen stikker opp
-   for enkelt grep, samtidig som lokket lukkes flukt over kula.
 """
 
 import FreeCAD as App
