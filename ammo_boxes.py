@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Ammunisjonsboks v2.9 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
+Ammunisjonsboks v2.10 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
 
-Basert på din v2.8.1. Endringer i v2.9 (styrke og robusthet):
- - Fingersporene er nå bare så høye som kraten (+1 mm) og stopper minst
-   NOTCH_MIN_WALL_ABOVE mm under lokksporet. Før gikk de helt opp til sporet og
-   etterlot en 0,25 mm tynn kile under skinnen der lokket glir.
- - Bakre fingerspor (skillevegg) er grunnere, slik at skilleveggen beholder
-   minst 1,0 mm i stedet for 0,4 mm.
- - Tykkere leppe over sporet (LID_THICKNESS 5,0 / RAIL_H 2,0 -> 2,5 mm).
- - Mykere klikk: mindre bule og fordypning (ca. 0,2 mm interferens, var 0,35).
- - Advarsler er tilbake: tynne vegger, krate som ikke får sitte plant.
+Nytt i v2.10 (bygger på v2.9):
+ - STAGGER_MODE = "checker": sjakkbrett-mønster. Lav og høy veksler BÅDE langs raden og fra rad til
+   rad, slik at hver patron har naboer i annen høyde på alle fire sider.
+   "rows" = som før (annenhver rad), "none" = alle like høye.
+ - Rad 6 (ekstraraden) følger sjakkbrettet med mindre forskjell (STRIP_STAGGER), så de høye
+   patronene fortsatt går fri av lokket.
+ - Advarselen om krate-sete bruker nå de grunneste (høye) hullene.
 """
 
 import FreeCAD as App
@@ -46,7 +44,9 @@ CAVITY_FLOOR_RAISE = None  # Høyde på hullblokken. None = auto
 POCKET_DEPTH = None        # Hulldybde. None = auto
 EXPOSED_LOW_ROW = 3.0      # Hvor mange mm laveste rad skal stikke opp over kraten
 STAGGER = 3.0              # Hvor mange mm høyere hver annen rad står
-RAISED_ROW_PARITY = 1      # 1 = rad 2, 4, ... står høyest; 0 = rad 1, 3, 5, ... står høyest
+RAISED_ROW_PARITY = 1      # bytter hvilke som er høye: 0/1 (1 = patron nr. 2 i første rad er høy)
+STAGGER_MODE = "checker"   # "checker" = sjakkbrett, "rows" = annenhver rad, "none" = alle like høye
+STRIP_STAGGER = 1.5        # høydeforskjell på rad 6 (sjakkbrett). Må være mindre enn STRIP_EXPOSED_HEIGHT - rimtykkelse
 
 # Doble fingerspor for klypetak rundt kraten
 FINGER_NOTCH = True
@@ -141,7 +141,7 @@ if HOLE_CHAMFER_E < 0.3:
 # ----------------------------------------------------------------------------
 # HULLDYBDE OG STAGGER
 # ----------------------------------------------------------------------------
-STAGGER_E = STAGGER
+STAGGER_E = STAGGER if STAGGER_MODE != "none" else 0.0
 
 if CRATE:
     _auto_depth = C["oal"] - EXPOSED_LOW_ROW - CRATE["T"]
@@ -167,11 +167,12 @@ if CRATE:
     # Kraten slik den selges har rimen oppe på kraten. Da stikker kulespissen
     # (oal - rim_t - T) under kratens underside og treffer bunnen hvis hullene er grunnere.
     _seat_depth = C["oal"] - RIM_T - CRATE["T"]
-    if POCKET_DEPTH_E < _seat_depth - 0.05:
+    _min_pocket = RAISED_DEPTH if STAGGER_E > 0 else POCKET_DEPTH_E
+    if _min_pocket < _seat_depth - 0.05:
         App.Console.PrintWarning(
-            "Hullene (%.1f mm) er grunnere enn %.1f mm. Kraten med patroner som solgt (rim på kraten) "
+            "De grunneste hullene (%.1f mm) er grunnere enn %.1f mm. Kraten med patroner som solgt (rim på kraten) "
             "vil hvile %.1f mm over blokken, og patronene må gli opp gjennom kratehullene for at "
-            "kraten skal sitte plant.\n" % (POCKET_DEPTH_E, _seat_depth, _seat_depth - POCKET_DEPTH_E))
+            "kraten skal sitte plant.\n" % (_min_pocket, _seat_depth, _seat_depth - _min_pocket))
 else:
     CAV_H = max(CCI_HEIGHT - FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
 
@@ -192,12 +193,12 @@ GRIP_X = OUTER_L - 15.0
 _lip = LID_THICKNESS - RAIL_H - 2 * CLEARANCE
 _interf = BUMP_R - CLEARANCE
 App.Console.PrintMessage(
-    "v2.9 %s: hull %.1f mm, boks %.1f x %.1f x %.1f mm. Skinn bak spor %.1f mm, leppe over spor %.1f mm, "
+    "v2.10 %s: hull %.1f mm, boks %.1f x %.1f x %.1f mm. Skinn bak spor %.1f mm, leppe over spor %.1f mm, "
     "klikk-interferens %.2f mm.\n"
     % (CALIBER, HOLE_D, OUTER_L, OUTER_W, OUTER_H, WALL_T - GROOVE_W, _lip, _interf))
 App.Console.PrintMessage(
-    "Laveste rad stikker %.1f mm over krate, hevet rad %.1f mm.\n"
-    % (EXPOSED_LOW_ROW, EXPOSED_LOW_ROW + STAGGER_E))
+    "Lave patroner stikker %.1f mm over krate, høye %.1f mm (modus: %s).\n"
+    % (EXPOSED_LOW_ROW, EXPOSED_LOW_ROW + STAGGER_E, STAGGER_MODE))
 if _lip < 2.0:
     App.Console.PrintWarning("Leppa over lokksporet er bare %.1f mm - øk LID_THICKNESS.\n" % _lip)
 if _interf > 0.3:
@@ -307,17 +308,31 @@ def make_hole_tool(x, y, z_top, depth):
         return cyl.fuse(cone)
     return cyl
 
+def is_raised(r, i):
+    """True hvis patronen i rad r, kolonne i skal stå høyt (grunt hull)."""
+    if STAGGER_MODE == "checker":
+        return ((r + i) % 2) == RAISED_ROW_PARITY
+    if STAGGER_MODE == "rows":
+        return (r % 2) == RAISED_ROW_PARITY
+    return False
+
 tools = []
-# Ekstra 6. rad (10 skudd)
+# Ekstra 6. rad (10 skudd). I sjakkbrett-modus veksler den også, men med mindre forskjell
+# (høyeste patron = STRIP_EXPOSED_HEIGHT over hylla, så den går fri av lokket).
 z_strip_top = Z_SLOT - STRIP_STEP_DOWN
 for i in range(NUM_COLS):
-    tools.append(make_hole_tool(x_start + i * PITCH_X, y_strip, z_strip_top, STRIP_HOLE_DEPTH))
+    if STAGGER_MODE == "checker":
+        exposed = STRIP_EXPOSED_HEIGHT if is_raised(NUM_ROWS, i) else STRIP_EXPOSED_HEIGHT - STRIP_STAGGER
+    else:
+        exposed = STRIP_EXPOSED_HEIGHT
+    strip_depth = max(C["oal"] - exposed, 5.0)
+    tools.append(make_hole_tool(x_start + i * PITCH_X, y_strip, z_strip_top, strip_depth))
 
 # Hull i eskerommet (med stagger)
 if POCKETS_IN_CAVITY:
     for r in range(NUM_ROWS):
-        depth = RAISED_DEPTH if (r % 2) == RAISED_ROW_PARITY else POCKET_DEPTH_E
         for i in range(NUM_COLS):
+            depth = RAISED_DEPTH if is_raised(r, i) else POCKET_DEPTH_E
             tools.append(make_hole_tool(x_start + i * PITCH_X, y_start + r * PITCH_Y, FLOOR_Z, depth))
 
 try:
@@ -481,4 +496,4 @@ if EXPORT_DIR:
     except Exception as e:
         App.Console.PrintError("STL-eksport feilet: %s\n" % e)
 
-App.Console.PrintMessage("Ferdig. Boks v2.9 for %s generert.\n" % CALIBER)
+App.Console.PrintMessage("Ferdig. Boks v2.10 for %s generert.\n" % CALIBER)
