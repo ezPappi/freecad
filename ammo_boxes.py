@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Ammunisjonsboks v2.8.1 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
+Ammunisjonsboks v2.9 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
 
-Nytt i v2.8.1:
- - Oppdatert med DOBLE fingerspor (framvegg + skillevegg) for klypetak rundt kraten.
- - Beholder den 6. ekstra raden (10 skudd) og alle v2.8-oppdateringer intact.
+Basert på din v2.8.1. Endringer i v2.9 (styrke og robusthet):
+ - Fingersporene er nå bare så høye som kraten (+1 mm) og stopper minst
+   NOTCH_MIN_WALL_ABOVE mm under lokksporet. Før gikk de helt opp til sporet og
+   etterlot en 0,25 mm tynn kile under skinnen der lokket glir.
+ - Bakre fingerspor (skillevegg) er grunnere, slik at skilleveggen beholder
+   minst 1,0 mm i stedet for 0,4 mm.
+ - Tykkere leppe over sporet (LID_THICKNESS 5,0 / RAIL_H 2,0 -> 2,5 mm).
+ - Mykere klikk: mindre bule og fordypning (ca. 0,2 mm interferens, var 0,35).
+ - Advarsler er tilbake: tynne vegger, krate som ikke får sitte plant.
 """
 
 import FreeCAD as App
@@ -23,7 +29,7 @@ TEXT_SIZE = 10.0       # Tekststørrelse
 FONT_FILE = ""         # Full sti til .ttf, tom = auto
 
 BOX_OVERRIDE = None        # (lengde, bredde, høyde) på originaleska (brukes ikke når kratemål er aktive)
-HOLE_D_OVERRIDE = None     # Hulldiameter (22LR: 6.2; prøv 6.0 hvis veggene mellom hullene blir for tynne)
+HOLE_D_OVERRIDE = None     # Hulldiameter (22LR: 6.1; prøv 6.2 hvis hylsene sitter for stramt)
 NUM_HOLES_OVERRIDE = None  # Antall hull per rad; None = auto
 
 # CCI-krate (flat plate med 50 hull som patronene står i)
@@ -42,10 +48,12 @@ EXPOSED_LOW_ROW = 3.0      # Hvor mange mm laveste rad skal stikke opp over krat
 STAGGER = 3.0              # Hvor mange mm høyere hver annen rad står
 RAISED_ROW_PARITY = 1      # 1 = rad 2, 4, ... står høyest; 0 = rad 1, 3, 5, ... står høyest
 
-# Doble fingerspor i langveggene for klypetak rundt kraten
+# Doble fingerspor for klypetak rundt kraten
 FINGER_NOTCH = True
 NOTCH_W = 14.0
-NOTCH_DEPTH = 1.6          # inn i veggene (både framvegg og skillevegg)
+NOTCH_DEPTH_FRONT = 1.6        # inn i framveggen (tykk vegg, ok)
+NOTCH_DEPTH_REAR = 1.0         # inn i skilleveggen (tynn, ikke gå dypere)
+NOTCH_MIN_WALL_ABOVE = 4.0     # minst så mye massiv vegg mellom sporets topp og lokksporet
 
 # 2. Den 6. ekstra raden (10 skudd)
 STRIP_EXPOSED_HEIGHT = 3.0 # Hvor mange mm patronen stikker opp på ekstraraden
@@ -56,9 +64,9 @@ EDGE_CHAMFER = 0.8         # Fase topp/bunn
 HOLE_CHAMFER = 0.6         # Innløpsfase på hull
 LID_CHAMFER = 0.6          # Fase på toppen av lokket
 
-# Lokkets "klikk"
-BUMP_R = 0.6               # Bule i sporet
-DIMPLE_R = 0.8             # Fordypning i lokkskinnen
+# Lokkets "klikk" (interferens = BUMP_R - CLEARANCE; hold den rundt 0,2 mm)
+BUMP_R = 0.45              # Bule i sporet
+DIMPLE_R = 0.65            # Fordypning i lokkskinnen
 BUMP_X_FROM_END = 8.0      # Avstand fra lukket ende
 
 LAYOUT = "print"           # "print" = lokk flatt ved siden av, "assembled" = montert
@@ -78,7 +86,7 @@ CALIBERS = {
     "45ACP":  dict(label="45 ACP",  rim=12.2,  oal=32.4, hole_d=None, box=(125.0, 68.0, 38.0), box_est=True),
     "10MM":   dict(label="10MM",    rim=10.8,  oal=32.0, hole_d=None, box=(120.0, 62.0, 36.0), box_est=True),
     "223":    dict(label="223 REM", rim=9.6,   oal=57.4, hole_d=None, box=(150.0, 70.0, 64.0), box_est=True),
-    "6.5X55": dict(label="6.5x55", rim=12.2,  oal=80.0, hole_d=12.6, box=(165.0, 85.0, 85.0), box_est=True),
+    "6.5X55": dict(label="6.5x55",  rim=12.2,  oal=80.0, hole_d=12.6, box=(165.0, 85.0, 85.0), box_est=True),
 }
 
 if CALIBER not in CALIBERS:
@@ -91,13 +99,13 @@ if LID_TEXT.strip().upper() == "AUTO":
 # ----------------------------------------------------------------------------
 # PARAMETERE OG GEOMETRIBASIS
 # ----------------------------------------------------------------------------
-WALL_T = 4.5                # Solid skinnevegg (~2.9 mm massivt gods bak sporet)
+WALL_T = 4.5                # Skinnevegg (2,9 mm massivt bak sporet)
 DIVIDER_T = 2.0             # Skillevegg mot 6. rad
 BOTTOM_T = 2.5              # Bunntykkelse
-LID_THICKNESS = 4.5         # Lokktykkelse
+LID_THICKNESS = 5.0         # Lokktykkelse (leppe over sporet = LID_THICKNESS - RAIL_H - 2 x CLEARANCE)
 CLEARANCE = 0.25
-GROOVE_W = 1.6
-RAIL_H = 2.2
+GROOVE_W = 1.6              # hvor langt skinnen stikker inn i veggen
+RAIL_H = 2.0                # skinnehøyde, må være >= GROOVE_W for 45 graders underside
 
 GRIP_R = 8.0
 GRIP_DEPTH = 1.2
@@ -123,12 +131,15 @@ else:
     NUM_ROWS = int((CCI_WIDTH - HOLE_D) / PITCH_Y + 1e-6) + 1
 
 _wall_between = min(PITCH_X, PITCH_Y) - HOLE_D
+if _wall_between < 1.0:
+    App.Console.PrintWarning(
+        "Veggen mellom hullene er bare %.2f mm (hull %.1f mm).\n" % (_wall_between, HOLE_D))
 HOLE_CHAMFER_E = min(HOLE_CHAMFER, (_wall_between - 0.6) / 2.0)
-if HOLE_CHAMFER_E < 0.2:
-    HOLE_CHAMFER_E = 0.0
+if HOLE_CHAMFER_E < 0.3:
+    HOLE_CHAMFER_E = 0.0       # for liten til å være nyttig, og tynner bare veggene
 
 # ----------------------------------------------------------------------------
-# HULLDYBDE OG STAGGER BEREGNING
+# HULLDYBDE OG STAGGER
 # ----------------------------------------------------------------------------
 STAGGER_E = STAGGER
 
@@ -143,8 +154,24 @@ RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER_E, 2.0)
 FLOOR_RAISE = CAVITY_FLOOR_RAISE or POCKET_DEPTH_E
 FLOOR_Z = BOTTOM_T + FLOOR_RAISE
 
+_max_depth = FLOOR_Z - 1.5
+if POCKET_DEPTH_E > _max_depth:
+    App.Console.PrintWarning(
+        "Hulldybden %.1f mm er justert til %.1f mm (for lite bunn under hullene).\n"
+        % (POCKET_DEPTH_E, _max_depth))
+    POCKET_DEPTH_E = _max_depth
+    RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER_E, 2.0)
+
 if CRATE:
     CAV_H = CRATE["T"] + EXPOSED_LOW_ROW + STAGGER_E + 1.5
+    # Kraten slik den selges har rimen oppe på kraten. Da stikker kulespissen
+    # (oal - rim_t - T) under kratens underside og treffer bunnen hvis hullene er grunnere.
+    _seat_depth = C["oal"] - RIM_T - CRATE["T"]
+    if POCKET_DEPTH_E < _seat_depth - 0.05:
+        App.Console.PrintWarning(
+            "Hullene (%.1f mm) er grunnere enn %.1f mm. Kraten med patroner som solgt (rim på kraten) "
+            "vil hvile %.1f mm over blokken, og patronene må gli opp gjennom kratehullene for at "
+            "kraten skal sitte plant.\n" % (POCKET_DEPTH_E, _seat_depth, _seat_depth - POCKET_DEPTH_E))
 else:
     CAV_H = max(CCI_HEIGHT - FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
 
@@ -162,10 +189,19 @@ Z_SLOT = OUTER_H - LID_THICKNESS
 ZB = Z_SLOT + CLEARANCE
 GRIP_X = OUTER_L - 15.0
 
+_lip = LID_THICKNESS - RAIL_H - 2 * CLEARANCE
+_interf = BUMP_R - CLEARANCE
 App.Console.PrintMessage(
-    "v2.8 Kaliber %s: hull %.1f mm, godstykkelse bak spor %.1f mm.\n"
-    "Laveste rad stikker %.1f mm over krate, hevet rad stikker %.1f mm over krate.\n"
-    % (CALIBER, HOLE_D, WALL_T - GROOVE_W, EXPOSED_LOW_ROW, EXPOSED_LOW_ROW + STAGGER_E))
+    "v2.9 %s: hull %.1f mm, boks %.1f x %.1f x %.1f mm. Skinn bak spor %.1f mm, leppe over spor %.1f mm, "
+    "klikk-interferens %.2f mm.\n"
+    % (CALIBER, HOLE_D, OUTER_L, OUTER_W, OUTER_H, WALL_T - GROOVE_W, _lip, _interf))
+App.Console.PrintMessage(
+    "Laveste rad stikker %.1f mm over krate, hevet rad %.1f mm.\n"
+    % (EXPOSED_LOW_ROW, EXPOSED_LOW_ROW + STAGGER_E))
+if _lip < 2.0:
+    App.Console.PrintWarning("Leppa over lokksporet er bare %.1f mm - øk LID_THICKNESS.\n" % _lip)
+if _interf > 0.3:
+    App.Console.PrintWarning("Bulen er stor (%.2f mm interferens) - lokket kan knekke sporet.\n" % _interf)
 
 # ----------------------------------------------------------------------------
 # HJELPEFUNKSJONER
@@ -240,20 +276,20 @@ groove_right = prism_yz(mirror_y(groove_l), WALL_T, groove_len)
 
 box_shape = box_outer.cut(cavity).cut(slot).cut(divider_cutout).cut(groove_left).cut(groove_right)
 
-# DOBLE FINGERSPOR (Tommel på framvegg, pekefinger på skillevegg)
+# FINGERSPOR: bare så høye som kraten + 1 mm, og alltid minst NOTCH_MIN_WALL_ABOVE under lokksporet,
+# slik at veggen under skinnen ikke svekkes.
 if FINGER_NOTCH:
     notch_x = WALL_T + (CCI_LENGTH - NOTCH_W) / 2.0
-    notch_h = Z_SLOT - FLOOR_Z
-    
-    # 1. Fingerspor i framvegg (tommel)
-    notch_front = Part.makeBox(NOTCH_W, NOTCH_DEPTH + 0.5, notch_h,
-                               V(notch_x, WALL_T - NOTCH_DEPTH, FLOOR_Z))
-    
-    # 2. Fingerspor i skillevegg mot 6. rad (pekefinger)
-    notch_rear = Part.makeBox(NOTCH_W, NOTCH_DEPTH + 0.5, notch_h,
-                              V(notch_x, WALL_T + CCI_WIDTH - 0.5, FLOOR_Z))
-    
+    notch_h = max(min(CCI_HEIGHT + 1.0, Z_SLOT - FLOOR_Z - NOTCH_MIN_WALL_ABOVE), 1.0)
+
+    notch_front = Part.makeBox(NOTCH_W, NOTCH_DEPTH_FRONT + 0.5, notch_h,
+                               V(notch_x, WALL_T - NOTCH_DEPTH_FRONT, FLOOR_Z))
+    notch_rear = Part.makeBox(NOTCH_W, NOTCH_DEPTH_REAR + 0.5, notch_h,
+                              V(notch_x, y_divider_start - 0.5, FLOOR_Z))
     box_shape = box_shape.cut(notch_front).cut(notch_rear)
+    App.Console.PrintMessage(
+        "Fingerspor: %.1f mm høye (topp z=%.1f, lokkspor starter z=%.1f), igjen i vegg %.1f / skillevegg %.1f mm.\n"
+        % (notch_h, FLOOR_Z + notch_h, ZB, WALL_T - NOTCH_DEPTH_FRONT, DIVIDER_T - NOTCH_DEPTH_REAR))
 
 # ----------------------------------------------------------------------------
 # PATRONHULL GENERERING
@@ -445,4 +481,4 @@ if EXPORT_DIR:
     except Exception as e:
         App.Console.PrintError("STL-eksport feilet: %s\n" % e)
 
-App.Console.PrintMessage("Ferdig. Boks v2.8.1 for %s med doble fingerspor generert.\n" % CALIBER)
+App.Console.PrintMessage("Ferdig. Boks v2.9 for %s generert.\n" % CALIBER)
