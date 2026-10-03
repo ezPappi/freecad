@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Ammunisjonsboks v2.1 for FreeCAD 1.x - med justerbar blokkhøyde for patronhull
+Ammunisjonsboks v2.3 for FreeCAD 1.x
 
-Nytt i v2.1:
- - CAVITY_FLOOR_RAISE: Mulighet til å heve selve bunnen/sokkelen i eskerommet.
-   Dette gjør at patronene får god støtte og sitter ordentlig selv om du 
-   IKKE bruker CCI-plastrammen.
- - Dynamisk beregning av hulldybder (POCKET_DEPTH) basert på hevet bunn.
- - Beholder skråstilte sporskinner (45-grader) for printing uten support,
-   vekselvis høyde (STAGGER) og mekanisk klikk-lås.
+Nytt i v2.3:
+ - Ytterveggen på boksen er HEL og intakt.
+ - Den indre skilleveggen (DIVIDER_T) senkes med STRIP_STEP_DOWN.
+ - Den 6. raden har en nedsenket hylle slik at 8 mm av patronen stikker opp
+   for enkelt grep, samtidig som lokket lukkes flukt over kula.
 """
 
 import FreeCAD as App
@@ -20,7 +18,7 @@ V = App.Vector
 # ----------------------------------------------------------------------------
 # BRUKERVALG
 # ----------------------------------------------------------------------------
-CALIBER = "22LR"       # 22LR, 9MM, 357MAG, 38SPL, 40SW, 45ACP, 10MM, 223
+CALIBER = "22LR"       # 22LR, 9MM, 357MAG, 38SPL, 40SW, 45ACP, 10MM, 223, 6.5X55
 LID_TEXT = "AUTO"      # "AUTO" = kalibernavn, ellers valgfri tekst
 TEXT_DEPTH = 0.8       # Dybde på innfrest tekst
 TEXT_SIZE = 10.0       # Tekststørrelse
@@ -30,18 +28,16 @@ BOX_OVERRIDE = None        # (lengde, bredde, høyde) på originaleska
 HOLE_D_OVERRIDE = None     # Hulldiameter
 NUM_HOLES_OVERRIDE = None  # Antall hull per rad; None = auto
 
-# Hull og blokkhøyde i eskerommet (bruk uten original ramme)
+# 1. Eskerom (50 skudd)
 POCKETS_IN_CAVITY = True
-
-# *** NY PARAMETER ***
-# Hvor mange mm bunnen/sokkelen i eskerommet skal heves.
-# Sett til 0.0 dersom du bruker CCI-plastinnsatsen.
-# Øk denne (f.eks. 10.0 - 15.0 mm) for å gi patronene høyere støtte uten plastramme.
-CAVITY_FLOOR_RAISE = 12.0  
-
-POCKET_DEPTH = 15.0        # Dybde på de LAVE radene i eskerommet
+CAVITY_FLOOR_RAISE = 13.0  # Hev bunnen i eskerommet (for bruk uten/med CCI-ramme)
+POCKET_DEPTH = 13.0        # Dybde på de LAVE radene i eskerommet
 STAGGER = 3.0              # Hvor mye høyere hver annen rad står
 RAISED_ROW_PARITY = 1      # 1 = rad 2, 4, ... står høyest; 0 = rad 1, 3, 5, ...
+
+# 2. Den 6. ekstra raden (10 skudd)
+# Hvor mange mm av patronen som skal stikke opp over sin indre hylle:
+STRIP_EXPOSED_HEIGHT = 2.0 
 
 # Fileter / faser
 OUTER_FILLET = 3.0         # Avrunding på lukkede hjørner
@@ -69,6 +65,7 @@ CALIBERS = {
     "45ACP":  dict(label="45 ACP", rim=12.2,  oal=32.4, hole_d=None, box=(125.0, 68.0, 38.0), box_est=True),
     "10MM":   dict(label="10MM",    rim=10.8,  oal=32.0, hole_d=None, box=(120.0, 62.0, 36.0), box_est=True),
     "223":    dict(label="223 REM", rim=9.6,   oal=57.4, hole_d=None, box=(150.0, 70.0, 64.0), box_est=True),
+    "6.5X55": dict(label="6.5x55",  rim=12.2,  oal=80.0, hole_d=12.6, box=(165.0, 85.0, 85.0), box_est=True),
 }
 
 if CALIBER not in CALIBERS:
@@ -101,7 +98,7 @@ EXTRA_WIDTH = HOLE_D + 2.0
 NUM_COLS = NUM_HOLES_OVERRIDE or int((CCI_LENGTH - HOLE_D) / PITCH + 1e-6) + 1
 NUM_ROWS = int((CCI_WIDTH - HOLE_D) / PITCH + 1e-6) + 1
 
-# Beregn effektiv gulvhøyde i eskerommet inkludert den hevede sokkelen
+# Beregn effektiv gulvhøyde i eskerommet
 FLOOR_Z = BOTTOM_T + CAVITY_FLOOR_RAISE
 
 MIN_FLOOR_UNDER_POCKET = 1.5
@@ -116,7 +113,10 @@ else:
 
 RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER, 2.0)
 
-# Dybde på eskerommet over sokkelen
+# Dybde og nedsenking for den 6. raden
+STRIP_HOLE_DEPTH = max(C["oal"] - STRIP_EXPOSED_HEIGHT, 5.0)
+STRIP_STEP_DOWN = STRIP_EXPOSED_HEIGHT + 0.5  # Senk skillevegg og hylle slik at lokket går over
+
 CAV_H = max(CCI_HEIGHT - CAVITY_FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
 HOLE_DEPTH = round(C["oal"] + LID_THICKNESS + 0.5, 1)
 
@@ -170,12 +170,26 @@ box_outer = try_op("Fase bunn", lambda s: s.makeChamfer(
 box_outer = try_op("Fase topp", lambda s: s.makeChamfer(
     EDGE_CHAMFER, [e for e in s.Edges if all_at(e, "Z", OUTER_H)]), box_outer)
 
-# Eskerommet (starter fra FLOOR_Z, som tar hensyn til CAVITY_FLOOR_RAISE)
+# Eskerommet (50 skudd)
 cavity = Part.makeBox(CCI_LENGTH, CCI_WIDTH, OUTER_H - FLOOR_Z + 1.0,
                       V(WALL_T, WALL_T, FLOOR_Z))
 
+# Spor for skyvelokket (innvendig bredde INNER_W)
 slot = Part.makeBox(OUTER_L - WALL_T + 1.0, INNER_W, LID_THICKNESS + 1.0,
                     V(WALL_T, WALL_T, Z_SLOT))
+
+# *** NEDSENKING AV INDRE SKILLEVEGG OG HYLLE (Ytterveggen forblir hel) ***
+# Start Y: fra den indre skilleveggen (WALL_T + CCI_WIDTH)
+# Slutt Y: ut til INNER_W (før den ytre veggen som starter på WALL_T + INNER_W)
+y_divider_start = WALL_T + CCI_WIDTH
+width_to_cut = DIVIDER_T + EXTRA_WIDTH
+
+divider_cutout = Part.makeBox(
+    CCI_LENGTH, 
+    width_to_cut, 
+    STRIP_STEP_DOWN,
+    V(WALL_T, y_divider_start, Z_SLOT - STRIP_STEP_DOWN)
+)
 
 y_p = WALL_T + CLEARANCE
 y_o = y_p - GROOVE_W - CLEARANCE
@@ -191,14 +205,14 @@ groove_len = OUTER_L - WALL_T + 1.0
 groove_left = prism_yz(groove_l, WALL_T, groove_len)
 groove_right = prism_yz(mirror_y(groove_l), WALL_T, groove_len)
 
-box_shape = box_outer.cut(cavity).cut(slot).cut(groove_left).cut(groove_right)
+box_shape = box_outer.cut(cavity).cut(slot).cut(divider_cutout).cut(groove_left).cut(groove_right)
 
 # ----------------------------------------------------------------------------
 # PATRONHULL GENERERING
 # ----------------------------------------------------------------------------
 x_start = WALL_T + (CCI_LENGTH - (NUM_COLS - 1) * PITCH) / 2.0
 y_start = WALL_T + (CCI_WIDTH - (NUM_ROWS - 1) * PITCH) / 2.0
-y_strip = WALL_T + CCI_WIDTH + DIVIDER_T + EXTRA_WIDTH / 2.0
+y_strip = y_divider_start + DIVIDER_T + EXTRA_WIDTH / 2.0
 r_hole = HOLE_D / 2.0
 DOWN = V(0, 0, -1)
 
@@ -208,9 +222,10 @@ def make_hole_tool(x, y, z_top, depth):
     return cyl.fuse(cone)
 
 tools = []
-# Ekstra stripe med hull (fullhøyde)
+# Ekstra 6. rad: Bores fra den nedsenkede hylla
+z_strip_top = Z_SLOT - STRIP_STEP_DOWN
 for i in range(NUM_COLS):
-    tools.append(make_hole_tool(x_start + i * PITCH, y_strip, Z_SLOT, HOLE_DEPTH - LID_THICKNESS))
+    tools.append(make_hole_tool(x_start + i * PITCH, y_strip, z_strip_top, STRIP_HOLE_DEPTH))
 
 # Hull i eskerommet (på den hevede sokkelen)
 if POCKETS_IN_CAVITY:
@@ -348,7 +363,7 @@ if LID_TEXT.strip():
         App.Console.PrintError("Feil ved tekstgenerering: %s\n" % e)
 
 # ----------------------------------------------------------------------------
-# OPPRETTI FREECAD
+# OPPRETT I FREECAD
 # ----------------------------------------------------------------------------
 doc = App.newDocument("AmmoBox_%s" % CALIBER)
 
@@ -372,4 +387,4 @@ try:
 except Exception:
     pass
 
-App.Console.PrintMessage("Ammunisjonsboks ferdig generert med hevet sokkel (CAVITY_FLOOR_RAISE = %.1f mm).\n" % CAVITY_FLOOR_RAISE)
+App.Console.PrintMessage("Ammunisjonsboks ferdig generert med hel yttervegg og senket skillevegg.\n")
