@@ -25,7 +25,7 @@ FONT_FILE = ""         # Full sti til .ttf, tom = auto
 
 # Tekst på bakveggen (X = 0, endeveggen motsatt av lirkespor/åpning)
 BACK_TEXT = "eit.no"           # Tekst som skal freses inn på bakveggen
-BACK_TEXT_SIZE = 4.0           # Tekststørrelse for bakveggen
+BACK_TEXT_SIZE = 8.0           # Tekststørrelse for bakveggen
 BACK_TEXT_DEPTH = 0.8          # Dybde på innfrest tekst på bakveggen
 BACK_TEXT_Z = 4.0              # Z-posisjon (høyde fra bunnen) for teksten
 BACK_TEXT_Y_OFFSET = 0.0       # Horisontal forskyvning (0.0 = midtstilt, pos. = mot høyre, neg. = mot venstre)
@@ -40,46 +40,46 @@ BOX_OVERRIDE = None        # (lengde, bredde, høyde) på originaleska
 HOLE_D_OVERRIDE = None     # Hulldiameter
 NUM_HOLES_OVERRIDE = None  # Antall hull per rad; None = auto
 
-# CCI-krate
-USE_CRATE = True            
-CRATE_CLEARANCE = 0.4       
-CRATE_HOLE_OFFSET_X = 0.0   
-CRATE_HOLE_OFFSET_Y = 0.0   
-CRATE_PITCH_X = None        
-CRATE_PITCH_Y = None        
+# CCI-krate (flat plate med 50 hull som patronene står i)
+USE_CRATE = True            # True: eskerommet tilpasses kraten (mål i kalibertabellen under)
+CRATE_CLEARANCE = 0.4       # luft rundt kraten, per side (mm)
+CRATE_HOLE_OFFSET_X = 0.0   # flytt hullmønsteret langs lengden hvis hullene ikke flukter helt (mm)
+CRATE_HOLE_OFFSET_Y = 0.0   # flytt hullmønsteret langs bredden (mm)
+CRATE_PITCH_X = None        # hullavstand langs lengden; None = kratelengde / antall hull
+CRATE_PITCH_Y = None        # hullavstand langs bredden; None = kratebredde / antall hull  
 
-# Eskerom
+# 1. Eskerom (50 skudd)
 POCKETS_IN_CAVITY = True
-CAVITY_FLOOR_RAISE = None  
-POCKET_DEPTH = None        
-EXPOSED_LOW_ROW = 3.0      
-STAGGER = 3.0              
-RAISED_ROW_PARITY = 1      
-STAGGER_MODE = "checker"   
-STRIP_STAGGER = 1.5        
+CAVITY_FLOOR_RAISE = None  # Høyde på hullblokken. None = auto
+POCKET_DEPTH = None        # Hulldybde. None = auto
+EXPOSED_LOW_ROW = 3.0      # Hvor mange mm laveste rad skal stikke opp over kraten
+STAGGER = 3.0              # Hvor mange mm høyere hver annen rad står
+RAISED_ROW_PARITY = 1      # bytter hvilke som er høye: 0/1 (1 = patron nr. 2 i første rad er høy)
+STAGGER_MODE = "checker"   # "checker" = sjakkbrett, "rows" = annenhver rad, "none" = alle like høye
+STRIP_STAGGER = 1.5        # høydeforskjell på rad 6 (sjakkbrett). Må være mindre enn STRIP_EXPOSED_HEIGHT - rimtykkelseSTRIP_STAGGER = 1.5        
 
-# Innfelte paneler på yttersidene
+# Lettere boks: innfelte paneler på yttersidene av underdelen
 LIGHTEN_PANELS = True
-PANEL_DEPTH = 1.6              
-PANEL_MARGIN = 8.0             
-PANEL_BOTTOM = 3.0             
-PANEL_TOP_BELOW_SLOT = 5.0     
+PANEL_DEPTH = 1.6              # dybde inn i veggen (underdelen er massiv blokk, så dette svekker ingenting)
+PANEL_MARGIN = 8.0             # ramme som blir stående ved hjørnene (mm)
+PANEL_BOTTOM = 3.0             # ramme nederst (mm)
+PANEL_TOP_BELOW_SLOT = 5.0     # avstand mellom panelets topp og lokksonen (mm)  
 
-# Doble fingerspor for klypetak runt kraten
+# Doble fingerspor for klypetak rundt kraten
 FINGER_NOTCH = True
 NOTCH_W = 14.0
-NOTCH_DEPTH_FRONT = 1.6        
-NOTCH_DEPTH_REAR = 1.0         
-NOTCH_MIN_WALL_ABOVE = 4.0     
+NOTCH_DEPTH_FRONT = 1.6        # inn i framveggen (tykk vegg, ok)
+NOTCH_DEPTH_REAR = 1.0         # inn i skilleveggen (tynn, ikke gå dypere)
+NOTCH_MIN_WALL_ABOVE = 4.0     # minst så mye massiv vegg mellom sporets topp og lokksporet    
 
 # 2. Den 6. ekstra raden (10 skudd)
-STRIP_EXPOSED_HEIGHT = 3.0 
+STRIP_EXPOSED_HEIGHT = 3.0     # Hvor mange mm patronen stikker opp på ekstraraden
 
 # Fileter / faser
-OUTER_FILLET = 3.0         
-EDGE_CHAMFER = 0.8         
-HOLE_CHAMFER = 0.6         
-LID_CHAMFER = 0.6          
+OUTER_FILLET = 3.0         # Avrunding på lukkede hjørner
+EDGE_CHAMFER = 0.8         # Fase topp/bunn
+HOLE_CHAMFER = 0.6         # Innløpsfase på hull
+LID_CHAMFER = 0.6          # Fase på toppen av lokket        
 
 # Lokkets låsebuler (detenters) - Nå med doble sikringspunkter!
 BUMP_R = 0.45              # Bule i sporet
