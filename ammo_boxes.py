@@ -66,11 +66,11 @@ PANEL_BOTTOM = 3.0             # ramme nederst (mm)
 PANEL_TOP_BELOW_SLOT = 5.0     # avstand mellom panelets topp og lokksonen (mm)  
 
 # Doble fingerspor for klypetak rundt kraten
-FINGER_NOTCH = True
+FINGER_NOTCH = False
 NOTCH_W = 14.0
 NOTCH_DEPTH_FRONT = 1.6        # inn i framveggen (tykk vegg, ok)
 NOTCH_DEPTH_REAR = 1.0         # inn i skilleveggen (tynn, ikke gå dypere)
-NOTCH_MIN_WALL_ABOVE = 4.0     # minst så mye massiv vegg mellom sporets topp og lokksporet    
+NOTCH_MIN_WALL_ABOVE = 0.2     # minst så mye massiv vegg mellom sporets topp og lokksporet    
 
 # 2. Den 6. ekstra raden (10 skudd)
 STRIP_EXPOSED_HEIGHT = 3.0     # Hvor mange mm patronen stikker opp på ekstraraden
