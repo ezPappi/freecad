@@ -12,7 +12,7 @@ freecadcmd grip-hammerli-208.py
 
 Each run creates a new document with `App.newDocument(...)`. A few scripts (`magazine_holder_glock_open.py`, `skadis_*.py`) reuse `App.activeDocument()` if one is open. Results such as validity, volume, bounding box and "NEXT: measure…" hints go to the Report view through `App.Console.Print*`.
 
-To check a change, run the script and confirm that `Shape.isValid()` is reported True and that the volume and dimensions look sensible. `freecad`/`freecadcmd` are not on `PATH` in this shell (FreeCAD may be a snap/flatpak/AppImage), so if you can't execute a script, review the geometry logic carefully and say that it wasn't run.
+To check a change, run the script and confirm that `Shape.isValid()` is reported True and that the volume and dimensions look sensible. FreeCAD is installed as the flatpak `org.freecad.FreeCAD`. The wrappers `~/.local/bin/freecad` (GUI) and `~/.local/bin/freecadcmd` (headless) call `flatpak run [--command=freecadcmd] org.freecad.FreeCAD "$@"`. Claude Code's shell may or may not run inside a flatpak sandbox (it does when launched from the VS Code flatpak). The wrappers handle both cases: when `/.flatpak-info` exists they go through `flatpak-spawn --host`, otherwise they call `flatpak run` directly. Either way `freecadcmd <script>.py` works from here (verified with FreeCAD 1.1.4). Run a script after you change it. `try_op` warnings such as a skipped fillet are expected and don't mean the build failed.
 
 ## Files
 
