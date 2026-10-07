@@ -6,12 +6,12 @@ from FreeCAD import Vector
 # 1. Opprett eller hent aktivt dokument
 doc = App.activeDocument()
 if not doc:
-    doc = App.newDocument("Glock_Mag_Skadis_5Slot")
+    doc = App.newDocument("Glock_Mag_Skadis_Rack")
 
 # ==========================================
 # PARAMETRE
 # ==========================================
-num_slots = 7             # 5 magasinplasser
+num_slots = 7             # Antall magasinplasser
 slot_width = 25.5         # Glock double-stack bredde (mm)
 divider_thickness = 7.0   # Skilleveggtykkelse / bladbredde (mm)
 rack_depth = 38.0         # Dybde på veggene/bladene (mm)

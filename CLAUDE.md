@@ -23,9 +23,9 @@ To check a change, run the script and confirm that `Shape.isValid()` is reported
 | `chamber_flag_22LR.py` | Chamber safety flag for S&W Model 41 (.22 LR) | Cartridge plug + octagon flag with stencil text cut through (auto-bridges letter islands). `PLUG_ONLY` for a quick fit test. Norwegian. |
 | `reddot_mount_sw_41.py` | Red dot mount plate for S&W Model 41 | Dimensions in **inches**, converted with `mm()`. Exports STEP+STL to the FreeCAD user data dir when `EXPORT_FILES`. |
 | `red_dot_hammerli208.py` | Hämmerli 208 front-face profile | Exports to a hardcoded `/tmp/...stl`. Norwegian. |
-| `magazine-holder-glock.py`, `magazine-holder-1911.py`, `magazine-holder-1911-v2.py` | Skådis-mounted magazine trays | Older lowercase-variable style. Note `magazine-holder-1911.py` actually contains Glock dimensions/document name. |
+| `magazine-holder-glock.py`, `magazine-holder-glock-v2.py`, `magazine-holder-1911-v2.py` | Skådis-mounted magazine trays | Older lowercase-variable style. `-glock-v2` adds hook root/neck fillets and deeper peg anchoring over `-glock`. |
 | `magazine_holder_glock_open.py` | Open Glock magazine rack with flared blades and Skådis hooks | Norwegian comments. |
-| `ikea_skadis_pegboard-20x10.py` | Lightweight custom Skådis pegboard | Filename dimensions are stale (params say 300×300). |
+| `ikea_skadis_pegboard-30x30.py` | Lightweight custom Skådis pegboard | Ribbed hollow back, 300×300 mm by default. |
 | `skadis_wide_mount.py`, `skadis_mount_screws.py` | Wide Skådis mount and matching printable plastic screws | Screws use a helical thread sweep. |
 
 ## Conventions

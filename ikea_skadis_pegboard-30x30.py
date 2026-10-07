@@ -7,8 +7,8 @@ doc = App.newDocument("Custom_Skadis_Lightweight")
 # ==========================================
 # PARAMETERS (Dimensions in mm)
 # ==========================================
-width = 300.0          # 10 cm wide
-height = 300.0         # 20 cm high
+width = 300.0          # 30 cm wide
+height = 300.0         # 30 cm high
 total_thickness = 5.0  # Overall thickness for Skådis hooks
 face_thickness = 1.6   # Front skin thickness (approx 4-5 top layers)
 chamfer_size = 1.0     # Outer front edge chamfer
