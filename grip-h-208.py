@@ -161,6 +161,10 @@ FRONT_TAPER_L = 20.0         # the outer surface runs down to the front edge ove
 FRONT_EDGE_ROUND = 0.6      # v5.40: radius of the rounding on the front edge itself (mm, 0 = sharp)
 FRONT_TAPER_BLEND = 10.0     # v5.40: the run-out changes length gradually over about this height (mm) around the emblem
 FRONT_EDGE_T = 1.5           # thickness of the front edge itself, from the pocket floor (mm), the same as the run-out at the bottom of the grip and at the tip of the flange
+FRONT_EDGE_T_BOTTOM = 2.2    # v5.41: the front edge is thicker and rounder in the lower part of the grip (mm above the pocket floor; it was almost sharp, 0.3 mm). = FRONT_EDGE_T for no change
+FRONT_EDGE_BOTTOM_Z0 = 16.0  # v5.41: full thickness up to this height (mm above the heel) ...
+FRONT_EDGE_BOTTOM_Z1 = 46.0  # ... and then smoothly down to FRONT_EDGE_T at this height
+FRONT_EDGE_SMOOTH = 2.2      # v5.41: mm; how softly the thicker edge merges into the surface behind it (no crease)
 LOBE_DEEP_SHIFT = 0.0      # moves the deeper relief down from the ordinary relief (mm). 0 = same outline as the relief on the other side: its top is the floor of the notch in the flange
 
 # top flange (sketch + photos)
@@ -1614,6 +1618,116 @@ def round_rear_arc(half, palm):
     return res
 
 
+def _mesh_parts(shape, tol=0.05):
+    """number of separate pieces of the tessellated shape (vertices welded to 1 micron): 1 = one object in a slicer"""
+    vs, ts = shape.tessellate(tol)
+    key = {}
+    ids = []
+    for p in vs:
+        ids.append(key.setdefault((round(p.x, 3), round(p.y, 3), round(p.z, 3)), len(key)))
+    par = list(range(len(key)))
+
+    def find(a):
+        while par[a] != a:
+            par[a] = par[par[a]]
+            a = par[a]
+        return a
+    for a, b, c in ts:
+        ra, rb, rc = find(ids[a]), find(ids[b]), find(ids[c])
+        par[rb] = ra
+        par[rc] = ra
+    return len(set(find(i_) for i_ in range(len(key))))
+
+
+def _front_edge_bottom_fill(half, Tz, rz):
+    """v5.41: makes the front edge thicker and fully rounded in the lower part of the grip (it was a 0.3 mm wedge): a lofted filler from the real sections of the half. The extra height is
+    A(z) at the edge (so the edge is Tz(z) thick, rounded with radius rz(z)) and dies away smoothly (smooth-step) over the first 9-16 mm behind the edge - so it never reaches the emblem's
+    shield - and A(z) itself fades smoothly to 0 higher up (no step, no ridge). Returns the half unchanged if anything fails (or if the result is not one single piece)."""
+    try:
+        if FRONT_EDGE_T_BOTTOM <= FRONT_EDGE_T + 0.01:
+            return half
+        n_x, A_MIN = 24, 0.06
+
+        def _ss(t_):
+            t_ = min(1.0, max(0.0, t_))
+            return t_ * t_ * (3.0 - 2.0 * t_)
+
+        def Lg(z_):                                                    # reach behind the edge: wide in the lower part, 9.5 mm where the emblem's shield is (it starts 11 mm behind the edge)
+            return 16.0 - 6.5 * _ss((z_ - 24.0) / 8.0)
+        z_a, z_b = 0.3, FRONT_EDGE_BOTTOM_Z1
+        n_a = int(round((z_b - z_a) / 1.5))
+        secs = []
+        for k in range(n_a + 1):
+            z = z_a + (z_b - z_a) * k / float(n_a)
+            segs = []
+            for w in half.slice(V(0, 0, 1), z):
+                pp = w.discretize(Distance=0.25)
+                segs += [((a.x, a.y), (b.x, b.y)) for a, b in zip(pp, pp[1:])]
+            if not segs:
+                raise ValueError("empty section at z=%.1f" % z)
+            xF0 = max(max(a[0], b[0]) for a, b in segs)
+            xF = xF0 - 0.03                                              # a hair inside the front face (no coincident faces)
+            yfl = min([p[1] for sg in segs for p in sg if p[0] > xF0 - 1.0 and p[1] > 8.0] or [9.0])
+            ybot = yfl + 0.08
+
+            def env(x_):
+                best = None
+                for (xa, ya), (xb, yb) in segs:
+                    if (xa - x_) * (xb - x_) <= 0 and abs(xb - xa) > 1e-9:
+                        yy = ya + (yb - ya) * (x_ - xa) / (xb - xa)
+                        best = yy if best is None else max(best, yy)
+                return best
+            yE, rr = FLOOR_Y + Tz(z), rz(z)
+            ys_e = env(xF0 - 0.9)                                        # surface height just behind the rounded corner
+            if ys_e is None:
+                raise ValueError("no surface at the edge at z=%.1f" % z)
+            A = yE - ys_e
+            if A < A_MIN:
+                if z > 20.0:
+                    break                                                # the thickening has faded out: the filler ends here (a step of less than 0.1 mm)
+                A = 0.0                                                  # (lower down it only dips to nothing for a moment: keep the section, nothing is added there)
+            L = Lg(z)
+            x0 = xF - L - 0.5
+            xe = xF - rr - 0.15
+            pts = [(x0, ybot)]
+            for i in range(n_x + 1):
+                x_ = x0 + (xe - x0) * i / float(n_x)
+                ys = env(min(x_, xF0 - 0.02))
+                if ys is None:
+                    ys = yE
+                d_ = xF0 - x_
+                ad = A * (1.0 - _ss(d_ / L))                            # the extra height at this distance behind the edge
+                inset = 0.4 * (1.0 - min(1.0, ad / 0.5)) * min(1.0, d_ / 2.5)   # 0.4 mm inside the surface where (almost) nothing is added: no coincident faces
+                pts.append((x_, ys + ad - inset))
+            ysq = max(yE, pts[-1][1])
+            rr = max(0.05, min(rr, ysq - ybot - 0.05))                  # the round must fit between the top and the bottom of the filler
+            for k in range(1, 6):
+                ph = math.radians(90.0 - 90.0 * k / 5.0)
+                pts.append((xF - rr + rr * math.cos(ph), ysq - rr + rr * math.sin(ph)))
+            pts.append((xF, ybot))
+            secs.append(Part.makePolygon([V(x_, y_, z) for x_, y_ in pts] + [V(pts[0][0], pts[0][1], z)]))
+        if len(secs) < 4:
+            raise ValueError("too few sections")
+        tool = Part.makeLoft(secs, True, True, False)
+        if tool.isNull() or not tool.isValid() or tool.Volume < 5.0:
+            raise ValueError("filler invalid")
+        v0 = half.Volume
+        for fz in (None, 0.005, 0.02):                                  # the plain fuse works (a fuzzy fuse of this filler returns a null shape)
+            try:
+                r_ = half.fuse(tool) if fz is None else half.fuse(tool, fz)
+            except Exception:
+                continue
+            if (not r_.isNull() and r_.isValid() and len(r_.Solids) == 1 and len(r_.Shells) == 1 and 10.0 < r_.Volume - v0 < 3000.0
+                    and _mesh_parts(r_) == _mesh_parts(half)):          # still ONE object
+                App.Console.PrintMessage("Front edge: thicker and rounder in the lower part (+%.0f mm3, edge %.1f mm, %d sections up to z=%.0f).\n"
+                                         % (r_.Volume - v0, FRONT_EDGE_T_BOTTOM, len(secs), secs[-1].BoundBox.ZMax))
+                return r_
+        raise ValueError("fuse gave no usable (single-piece) result")
+    except Exception as e:
+        App.Console.PrintWarning("Front edge filler failed (%s) - lower front edge left as it was.\n" % e)
+        return half
+
+
 def front_edge_taper(half, side=None):
     """v5.40: the front edge of the half gets the same thin run-out all the way up (as at the bottom of the grip): from FRONT_TAPER_L mm behind the edge the outer surface
     glides down (smooth-step) to FRONT_EDGE_T mm above the pocket floor, and the edge itself is rounded (FRONT_EDGE_ROUND). Built from the real sections of the half (so it starts
@@ -1622,8 +1736,16 @@ def front_edge_taper(half, side=None):
     try:
         z_lo, z_hi = 6.0, H - FLANGE_T - 0.2
         n_z, n_x = 50, 20
-        yE = FLOOR_Y + FRONT_EDGE_T
-        rr = FRONT_EDGE_ROUND
+        def _ss(t_):
+            t_ = min(1.0, max(0.0, t_))
+            return t_ * t_ * (3.0 - 2.0 * t_)
+
+        def Tz(z_):                                                      # thickness of the front edge at height z (thicker, rounder at the bottom)
+            T_ = FRONT_EDGE_T + (FRONT_EDGE_T_BOTTOM - FRONT_EDGE_T) * (1.0 - _ss((z_ - FRONT_EDGE_BOTTOM_Z0) / (FRONT_EDGE_BOTTOM_Z1 - FRONT_EDGE_BOTTOM_Z0)))
+            return 0.3 + (T_ - 0.3) * _ss(z_ / 3.0)                      # the very bottom (heel) blends into the natural thin edge
+
+        def rz(z_):
+            return FRONT_EDGE_ROUND + (Tz(z_) - FRONT_EDGE_T) * 0.7 if Tz(z_) > FRONT_EDGE_T else FRONT_EDGE_ROUND
         zs = [z_lo + (z_hi - z_lo) * kz / float(n_z) for kz in range(n_z + 1)]
         segl, xFl = [], []
         for z in zs:
@@ -1661,6 +1783,7 @@ def front_edge_taper(half, side=None):
         secs = []
         for kz, z in enumerate(zs):
             segs, xF, Lz = segl[kz], xFl[kz], Ls[kz]
+            yE, rr = FLOOR_Y + Tz(z), rz(z)
 
             def env(x_):
                 best = None
@@ -1705,6 +1828,7 @@ def front_edge_taper(half, side=None):
                 break
         if res is None:
             raise ValueError("cut gave no usable result")
+        res = _front_edge_bottom_fill(res, Tz, rz)
         App.Console.PrintMessage("Front edge run-out: %.0f mm3 removed (edge %.1f mm thick, rounded r %.1f, run-out %.0f mm, %.0f-%.0f mm round the emblem).\n"
                                  % (v0 - res.Volume, FRONT_EDGE_T, rr, FRONT_TAPER_L, min(Ls), max(Ls)))
         return res
