@@ -136,6 +136,7 @@ TANG_DROP_OLD = 30.0       # bottom of the marked area, measured down from the O
 TANG_TAPER = True          # the raised rear part narrows to a thin spur at its upper end (as on the original)
 TANG_SPUR_BELOW_FLANGE = 13.0  # the spur tip ends this far below the flange underside (v5.32: 13.0 = wall 5 mm longer upward; was 18.0)
 TANG_SPUR_W = 1.2          # width of the spur tip (front-to-back); v5.40: 1.2 mm (was 2.0), the spur runs out gradually to this at its top (both halves)
+REAR_WALL_W = 1.7           # v5.42: thickness (front-to-back) of the wall behind the relief under the flange (right half) - at least 1 mm everywhere, also where the rear rounding thins it
 TANG_TAPER_SCALE = 1.0
 TANG_CURVE = [(0.0, 0.0), (2.7, 16.5), (9.4, 29.7), (18.7, 40.7), (30.0, 51.0), (45.0, 62.0), (70.0, 75.0)]   # (mm rearward, mm below the tip)
 # v4.2: cut-ins at the top, from the inner face (from your sketch)
@@ -187,7 +188,7 @@ REAR_ARC_STRAIGHT = True    # v5.40: the rear edge from the spur tip up to the t
 HEAD_REAR_WALL = True       # v5.40: the part of the wall behind the pocket that lies outside the pocket floor continues up along the rear arc and closes the end of the relief under the flange, up to the top notch (the spur inside the pocket keeps its v5.39 length)
 HEAD_MIN_WALL = 1.4         # v5.40: the top layer is at least FLANGE_NOTCH_W + this thick (outside the pocket floor), so the notch never eats right through the thin rear end of the swelling (kept small: a thicker floor made a shelf where it meets the grip below)
 FLANGE_REBATE = 0.0        # the flange's inner face sits this much beyond the pocket floor (0 = on the floor)
-FLANGE_NOTCH_W, FLANGE_NOTCH_D = 4.0, 4.0    # notch along the top of the flange, inner side: 4 mm wide (side to side, from the pocket floor), 4 mm deep (down)
+FLANGE_NOTCH_W, FLANGE_NOTCH_D = 2.5, 4.0    # notch along the top of the flange, inner side: 4 mm wide (side to side, from the pocket floor), 4 mm deep (down)
 FLANGE_TILT_DROP = 3.5     # the whole flange (with its top notch) is tilted about its front underside corner: the rear end sits this much lower
 HEEL_REAR_DROP = 3.5       # the rear of the heel is extended this much further down (the heel line slopes down toward the rear)
 FLANGE_REAR_DEEP = 3.0     # the rearmost part of the flange, right behind the relief under the flange, is cut this much deeper into its inner face (like the relief)
@@ -197,7 +198,10 @@ NECK_EDGE_BACK = 2.0       # below the toe the front edge of the neck plate sink
 NECK_ARC_R_OUT = 3.0       # rounding of the outer edge of the front arc (the arc around the trigger where the finger rests), mm. 0 = sharp as before. Max about 3.5 (plate is NECK_T thick)
 NECK_ARC_R_IN = 0.0        # same for the inner edge of the arc (facing the other half / the metal grip). 0 = off (it would leave a small step against the flange's square inner edge)
 HEAD_TOE_DROP = 34.5       # top of the grip -> the toe (bottom of the front arc)
-TOE_UNDER_RELIEF = 2.5     # v5.41: mm the lower part of the inside rounding under the toe is pulled back (it pressed into the index finger); 0 = as before
+TOE_UNDER_RELIEF = 2.5     # mm the lower part of the inside rounding under the toe is pulled back (as v5.41; 6.2 made a notch into the front of the grip, so it is back at 2.5)
+TOE_TIP_LIFT = 3.7         # v5.42: mm the UNDERSIDE of the nose tip (the toe lip under the flange) is lifted; the tip is cut back along the front arc, 0 = as v5.41
+TOE_ROUNDING_LIFT = 0.0   # v5.43: mm the INSIDE ROUNDING under the toe is lifted (the curve from the front strap into the underside of the nose). It fades to nothing down the strap (starts to lift ~13 mm below the toe)
+                           # and lifts the whole nose underside and the tip with it, so the tip ends up TOE_TIP_LIFT + TOE_ROUNDING_LIFT higher. 0 = as before; try 1-4. Keep the total (TIP + ROUNDING) below ~9 mm.
 ARC_SPAN = 25.5            # height of the front arc
 ARC_FRONT_DEPTH = 11.0     # how far the front arc goes in from the flange tip
 REAR_ARC_LEN = 0.8         # from the flange's rear end forward to where the flange meets the body (0.8 = the flange ends at the rear edge)
@@ -986,6 +990,17 @@ if FLANGE:
     while _a1 - _a0 < -math.pi:
         _a1 += 2.0 * math.pi
     _arc_pts = [Q(_cx + _R * math.cos(_a0 + (_a1 - _a0) * k / 8.0), _cz + _R * math.sin(_a0 + (_a1 - _a0) * k / 8.0)) for k in range(9)]
+    if TOE_TIP_LIFT + TOE_ROUNDING_LIFT > 0.0:  # lift the underside of the nose: the arc now starts where it reaches z_toe + TOE_TIP_LIFT (the tip is cut back along the same circle)
+        _lo, _hi = 0.0, 1.0
+        for _ in range(60):
+            _mid = 0.5 * (_lo + _hi)
+            if _cz + _R * math.sin(_a0 + (_a1 - _a0) * _mid) < z_toe + TOE_TIP_LIFT + TOE_ROUNDING_LIFT:
+                _lo = _mid
+            else:
+                _hi = _mid
+        _a0 = _a0 + (_a1 - _a0) * _hi
+        _p0 = (_cx + _R * math.cos(_a0), _cz + _R * math.sin(_a0))
+        _arc_pts = [Q(_cx + _R * math.cos(_a0 + (_a1 - _a0) * k / 8.0), _cz + _R * math.sin(_a0 + (_a1 - _a0) * k / 8.0)) for k in range(9)]
     _arc_pts[0], _arc_pts[-1] = Q(*_p0), Q(*_p1)
 
     # the inside corner under the toe: with HEAD_AS_BODY the outline of the head is part of the grip's own outline, so it must leave the front strap edge SMOOTHLY (it used to cross it at an angle
@@ -1001,7 +1016,8 @@ if FLANGE:
             return 0.03 * t_ if t_ < 0 else 0.03 * t_ + 0.007 * t_ * t_
         _fds = [23.0, 20.0, _fd, 11.0, 7.5]
         _fds = [d_ for d_ in _fds if d_ == _fd or abs(d_ - _fd) > 1.5]                  # no two points closer than 1.5 mm (the spline would wiggle)
-        _FLARE_PTS = [Q(_xbase(z_toe - d_) + _dfl(d_) - TOE_UNDER_RELIEF * {7.5: 0.35, 11.0: 0.15}.get(d_, 0.0), z_toe - d_) for d_ in _fds]
+        _FLARE_PTS = [Q(_xbase(z_toe - d_) + _dfl(d_) - min(TOE_UNDER_RELIEF, 2.5) * {7.5: 0.35, 11.0: 0.15}.get(d_, 0.0),
+                        z_toe - d_ + TOE_ROUNDING_LIFT * {7.5: 0.75, 11.0: 0.4}.get(d_, 0.1 if d_ == _fd else 0.0)) for d_ in _fds]   # the rounding is lifted: same x, higher z (fading to 0 down the strap)
     else:
         _FLARE_PTS = [Q(_xb(z_toe - 20) - 0.65 * NECK_EDGE_BACK, z_toe - 20), Q(_xb(z_toe - 15) - 0.2 * NECK_EDGE_BACK, z_toe - 15),
                       Q(xs + 0.3, z_toe - 11), Q(xs + 1.8, z_toe - 7.5)]
@@ -1014,8 +1030,8 @@ if FLANGE:
         ("L", [Q(x_end + 3.5, z_fl), Q(x_end + 3.5, z_toe - 26)]),                               # (inside the body from here; the plate now reaches all the way back to the flange end)
         ("L", [Q(x_end + 3.5, z_toe - 26), Q(_xb(z_toe - 26) - _h0_back, z_toe - 26)]),
         ("S", [Q(_xb(z_toe - 26) - _h0_back, z_toe - 26)] + _FLARE_PTS + [
-               Q(xs + 5.0 - 0.95 * TOE_UNDER_RELIEF, z_toe - 4.0), Q(xs + 10.0 - 1.05 * TOE_UNDER_RELIEF, z_toe - 2.3),
-               Q(xs + 17.0 - 0.8 * TOE_UNDER_RELIEF, z_toe - 1.2), Q(x_tip - 1.5, z_toe)]),   # as on the original: rounded inside corner (r ~8 mm) from the front strap into an almost flat underside of the toe lip
+               Q(xs + 5.0 - 0.95 * TOE_UNDER_RELIEF, z_toe - 4.0 + 0.25 * TOE_TIP_LIFT + TOE_ROUNDING_LIFT), Q(xs + 10.0 - 1.05 * TOE_UNDER_RELIEF, z_toe - 2.3 + 0.7 * TOE_TIP_LIFT + TOE_ROUNDING_LIFT),
+               Q(min(xs + 17.0 - 0.8 * min(TOE_UNDER_RELIEF, 2.5), _p0[0] - 2.5), z_toe - 0.15 + TOE_TIP_LIFT + TOE_ROUNDING_LIFT), Q(_p0[0], _p0[1])]),   # as on the original: rounded inside corner (r ~8 mm) from the front strap into an almost flat underside of the toe lip
         ("S", _arc_pts),   # the front arc: a smooth circular arc (was a few straight-ish segments)
         ("S", [Q(x_tip - 1, arc_top), Q(x_tip + 0.2, arc_top + 2), Q(x_tip + 0.3, z_top - 3.5), Q(x_tip - 3, z_top)]),  # front tip
     ]
@@ -1218,7 +1234,7 @@ if FLANGE:
                         _lft += [(_lx(z_), z_) for z_ in (_p0[1] + 1.5, _p0[1] + 3.0)]
                         _lft = [(x_, z_) for x_, z_ in _lft if z_ <= _p0[1] + 3.0 + 1e-6]
                         _lft[-1] = (_lft[-1][0], _lz(_lft[-1][0]) + 0.05)
-                        _rgt = [(x_ + TANG_SPUR_W + 0.05, z_) for x_, z_ in _lft]
+                        _rgt = [(x_ + max(TANG_SPUR_W, REAR_WALL_W) + 0.05, z_) for x_, z_ in _lft]
                         _rgt[-1] = (_rgt[-1][0], _lz(_rgt[-1][0]) + 0.05)
                         _wp = [V(x_, 0, z_) for x_, z_ in _lft + list(reversed(_rgt))]
                         rear_wall = Part.Face(Part.makePolygon(_wp + [_wp[0]])).extrude(V(0, FLANGE_NOTCH_W + 0.3, 0))
@@ -1683,9 +1699,10 @@ def _front_edge_bottom_fill(half, Tz, rz):
                 raise ValueError("no surface at the edge at z=%.1f" % z)
             A = yE - ys_e
             if A < A_MIN:
-                if z > 20.0:
-                    break                                                # the thickening has faded out: the filler ends here (a step of less than 0.1 mm)
-                A = 0.0                                                  # (lower down it only dips to nothing for a moment: keep the section, nothing is added there)
+                if z > 20.0 and A < 0.0 and len(secs) >= 4:
+                    break                                                # the thickening is gone: the filler ends here, completely inside the surface
+                A = max(A, 0.0)
+            A = A * _ss(A / 0.6)                                         # fades out with zero slope: where the thickening dies away it meets the surface tangentially (no step, no crease line)
             L = Lg(z)
             x0 = xF - L - 0.5
             xe = xF - rr - 0.15
@@ -1696,10 +1713,9 @@ def _front_edge_bottom_fill(half, Tz, rz):
                 if ys is None:
                     ys = yE
                 d_ = xF0 - x_
-                ad = A * (1.0 - _ss(d_ / L))                            # the extra height at this distance behind the edge
-                inset = 0.4 * (1.0 - min(1.0, ad / 0.5)) * min(1.0, d_ / 2.5)   # 0.4 mm inside the surface where (almost) nothing is added: no coincident faces
-                pts.append((x_, ys + ad - inset))
-            ysq = max(yE, pts[-1][1])
+                ad = A * (1.0 - _ss(d_ / L))                            # the extra height at this distance behind the edge (zero slope at both ends: tangent to the surface)
+                pts.append((x_, ys + ad - 0.025))                       # 0.025 mm inside the surface where (almost) nothing is added: no coincident faces, and no visible crease
+            ysq = pts[-1][1] + 0.025
             rr = max(0.05, min(rr, ysq - ybot - 0.05))                  # the round must fit between the top and the bottom of the filler
             for k in range(1, 6):
                 ph = math.radians(90.0 - 90.0 * k / 5.0)
@@ -1742,17 +1758,23 @@ def front_edge_taper(half, side=None):
 
         def Tz(z_):                                                      # thickness of the front edge at height z (thicker, rounder at the bottom)
             T_ = FRONT_EDGE_T + (FRONT_EDGE_T_BOTTOM - FRONT_EDGE_T) * (1.0 - _ss((z_ - FRONT_EDGE_BOTTOM_Z0) / (FRONT_EDGE_BOTTOM_Z1 - FRONT_EDGE_BOTTOM_Z0)))
-            return 0.3 + (T_ - 0.3) * _ss(z_ / 3.0)                      # the very bottom (heel) blends into the natural thin edge
+            return 0.8 + (T_ - 0.8) * _ss(z_ / 4.0)                      # the very bottom (heel) blends gently into the natural thin edge
 
         def rz(z_):
             return FRONT_EDGE_ROUND + (Tz(z_) - FRONT_EDGE_T) * 0.7 if Tz(z_) > FRONT_EDGE_T else FRONT_EDGE_ROUND
         zs = [z_lo + (z_hi - z_lo) * kz / float(n_z) for kz in range(n_z + 1)]
         segl, xFl = [], []
         for z in zs:
-            segs = []
-            for w in half.slice(V(0, 0, 1), z):
-                pp = w.discretize(Distance=0.25)
-                segs += [((a.x, a.y), (b.x, b.y)) for a, b in zip(pp, pp[1:])]
+            for _dzt in (0.0, 0.11, -0.11, 0.23, -0.23, 0.37, -0.37):      # OCC sometimes returns a broken section for one exact height: then look a hair above / below
+                segs = []
+                for w in half.slice(V(0, 0, 1), z + _dzt):
+                    pp = w.discretize(Distance=0.25)
+                    segs += [((a.x, a.y), (b.x, b.y)) for a, b in zip(pp, pp[1:])]
+                if segs:
+                    _xf_t = max(max(a[0], b[0]) for a, b in segs)
+                    _xm_t = min(min(a[0], b[0]) for a, b in segs)
+                    if _xm_t < _xf_t - FRONT_TAPER_L - 1.5:
+                        break
             if not segs:
                 raise ValueError("empty section at z=%.1f" % z)
             segl.append(segs)
@@ -1792,6 +1814,7 @@ def front_edge_taper(half, side=None):
                         yy = ya + (yb - ya) * (x_ - xa) / (xb - xa)
                         best = yy if best is None else max(best, yy)
                 return best
+            wz = _ss((z - z_lo) / 8.0)
             x0 = xF - Lz
             xe = xF - rr - 0.15                                         # the grid ends here, then a quarter round (radius rr) over the corner of the front face
             pts = []
@@ -1807,7 +1830,7 @@ def front_edge_taper(half, side=None):
                 if ys is None:
                     ys = yE
                 e = 0.88 * (3 * tt * tt - 2 * tt ** 3) + 0.12 * tt
-                pts.append((x_, ys - e * (ys - yE)))                    # below the surface where it is thicker than the edge, above it (in the air) where it is already thinner
+                pts.append((x_, ys - wz * e * (ys - yE)))               # below the surface where it is thicker than the edge, above it (in the air) where it is already thinner (wz: the cut grows gradually from the cutter's lower end, no step there)
             for k in range(1, 6):                                       # quarter round: from the top of the front face down onto the face
                 ph = math.radians(90.0 - 90.0 * k / 5.0)
                 pts.append((xF - rr + rr * math.cos(ph), yE - rr + rr * math.sin(ph)))
