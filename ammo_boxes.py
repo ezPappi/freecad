@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Ammunisjonsboks v2.16 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
+Ammunisjonsboks v2.17 for FreeCAD 1.x  -  tilpasset CCI Standard Velocity-krate
+
+Nytt i v2.17:
+ - CRATE_FLUSH_WITH_STRIP: eskerommet er akkurat så dypt at kraten flukter med flaten til rad 6.
+   Patronene i kraten har derfor samme høydemønster som rad 6 (1.5 / 3.0 mm over kraten).
+ - Plass til NUM_CRATES esker/kratar etter hverandre langs lengden, med skillevegg mellom.
+ - Lokket kan skyves ut begge veier: lokkspor og skinner går gjennom begge ender,
+   lokket er like langt som boksen, og låsebuler, lirkespor og fingergrep er speilet i begge ender.
+ - Ekstraraden (strip) går langs hele boksen, med én rad per krate.
 
 Nytt i v2.16:
  - Lirkespor (Pry Notch) på fremkanten for enkel fjerning av full krate med kniv/skrutrekker.
@@ -23,15 +31,15 @@ TEXT_DEPTH = 0.8       # Dybde på innfrest tekst på lokket
 TEXT_SIZE = 10.0       # Tekststørrelse på lokket
 FONT_FILE = ""         # Full sti til .ttf, tom = auto
 
-# Tekst på bakveggen (X = 0, endeveggen motsatt av lirkespor/åpning)
+# Tekst på endeveggen ved X = 0
 BACK_TEXT = "eit.no"           # Tekst som skal freses inn på bakveggen
 BACK_TEXT_SIZE = 8.0           # Tekststørrelse for bakveggen
 BACK_TEXT_DEPTH = 0.8          # Dybde på innfrest tekst på bakveggen
 BACK_TEXT_Z = 4.0              # Z-posisjon (høyde fra bunnen) for teksten
 BACK_TEXT_Y_OFFSET = 0.0       # Horisontal forskyvning (0.0 = midtstilt, pos. = mot høyre, neg. = mot venstre)
 
-# Nytt: Lirkespor for verktøy (kniv, skrutrekker, bilnøkkel)
-PRY_NOTCH = True               # Aktiver lirkespor i forkant av boksen
+# Lirkespor for verktøy (kniv, skrutrekker, bilnøkkel)
+PRY_NOTCH = True               # Aktiver lirkespor i begge endeveggene
 PRY_NOTCH_W = 4.0             # Bredde på lirkesporet (mm)
 PRY_NOTCH_DEPTH = 3.8          # Dybde inn i fremveggen (mm)
 PRY_NOTCH_HEIGHT = 11.0         # Høyde på utskjæringen fra toppkanten (mm)
@@ -48,12 +56,18 @@ CRATE_HOLE_OFFSET_Y = 0.0   # flytt hullmønsteret langs bredden (mm)
 CRATE_PITCH_X = None        # hullavstand langs lengden; None = kratelengde / antall hull
 CRATE_PITCH_Y = None        # hullavstand langs bredden; None = kratebredde / antall hull  
 
+# Flere esker etter hverandre (langs lengden), med skillevegg mellom
+NUM_CRATES = 2              # antall esker/kratar etter hverandre
+CRATE_DIVIDER_T = 2.0       # tykkelse på skilleveggen mellom kratene (mm)
+CRATE_DIVIDER_H = None      # høyde på skilleveggen over hullblokken (mm); None = helt opp til lokket
+
 # 1. Eskerom (50 skudd)
 POCKETS_IN_CAVITY = True
 CAVITY_FLOOR_RAISE = None  # Høyde på hullblokken. None = auto
 POCKET_DEPTH = None        # Hulldybde. None = auto
-EXPOSED_LOW_ROW = 3.0      # Hvor mange mm laveste rad skal stikke opp over kraten
-STAGGER = 3.0              # Hvor mange mm høyere hver annen rad står
+EXPOSED_LOW_ROW = 1.5      # Hvor mange mm laveste rad skal stikke opp over kraten (= rad 6 lav)
+STAGGER = 1.5              # Hvor mange mm høyere hver annen rad står (= STRIP_STAGGER)
+CRATE_FLUSH_WITH_STRIP = True  # True: kratens overside flukter med flaten til rad 6
 RAISED_ROW_PARITY = 1      # bytter hvilke som er høye: 0/1 (1 = patron nr. 2 i første rad er høy)
 STAGGER_MODE = "checker"   # "checker" = sjakkbrett, "rows" = annenhver rad, "none" = alle like høye
 STRIP_STAGGER = 1.5        # høydeforskjell på rad 6 (sjakkbrett). Må være mindre enn STRIP_EXPOSED_HEIGHT - rimtykkelseSTRIP_STAGGER = 1.5        
@@ -81,11 +95,10 @@ EDGE_CHAMFER = 0.8         # Fase topp/bunn
 HOLE_CHAMFER = 0.6         # Innløpsfase på hull
 LID_CHAMFER = 0.6          # Fase på toppen av lokket        
 
-# Lokkets låsebuler (detenters) - Nå med doble sikringspunkter!
+# Lokkets låsebuler (detenters) - speilet i begge ender, siden lokket kan skyves ut begge veier
 BUMP_R = 0.45              # Bule i sporet
 DIMPLE_R = 0.65            # Fordypning i lokkskinnen
-BUMP_X_REAR = 8.0          # Avstand fra lukket ende (bakre låsepunkt)
-BUMP_X_FRONT = 25.0        # Avstand fra lukket ende (fremre/midtre låsepunkt)
+BUMP_X_FROM_END = (8.0,)   # Avstand(er) fra innsiden av hver endevegg til låsepunkt
 
 LAYOUT = "print"           # "print" = lokk flatt ved siden av, "assembled" = montert
 EXPORT_DIR = ""            # Sti for STL-eksport, tom = ingen
@@ -127,6 +140,7 @@ RAIL_H = 2.0
 
 GRIP_R = 8.0
 GRIP_DEPTH = 1.2
+GRIP_FROM_END = 15.0        # fingergrep på lokket, avstand fra hver ende
 
 HOLE_D = HOLE_D_OVERRIDE or C["hole_d"] or round(C["rim"] + 0.4, 1)
 EXTRA_WIDTH = HOLE_D + 2.0
@@ -174,24 +188,40 @@ if POCKET_DEPTH_E > _max_depth:
     POCKET_DEPTH_E = _max_depth
     RAISED_DEPTH = max(POCKET_DEPTH_E - STAGGER_E, 2.0)
 
-if CRATE:
+STRIP_HOLE_DEPTH = max(C["oal"] - STRIP_EXPOSED_HEIGHT, 5.0)
+STRIP_STEP_DOWN = STRIP_EXPOSED_HEIGHT + 0.5
+
+if CRATE and CRATE_FLUSH_WITH_STRIP:
+    # Eskerommet er akkurat så dypt at kraten går kant i kant med rad 6
+    CAV_H = CRATE["T"] + STRIP_STEP_DOWN
+elif CRATE:
     CAV_H = CRATE["T"] + EXPOSED_LOW_ROW + STAGGER_E + 1.5
 else:
     CAV_H = max(CCI_HEIGHT - FLOOR_RAISE + 1.0, C["oal"] - RAISED_DEPTH + 1.0)
 
-STRIP_HOLE_DEPTH = max(C["oal"] - STRIP_EXPOSED_HEIGHT, 5.0)
-STRIP_STEP_DOWN = STRIP_EXPOSED_HEIGHT + 0.5
-
 HOLE_DEPTH = round(C["oal"] + LID_THICKNESS + 0.5, 1)
 
-OUTER_L = CCI_LENGTH + 2 * WALL_T
+COMP_PITCH = CCI_LENGTH + CRATE_DIVIDER_T
+INNER_L = NUM_CRATES * CCI_LENGTH + (NUM_CRATES - 1) * CRATE_DIVIDER_T
+COMP_X0 = [WALL_T + k * COMP_PITCH for k in range(NUM_CRATES)]   # start-X for hvert eskerom
+
+OUTER_L = INNER_L + 2 * WALL_T
 INNER_W = CCI_WIDTH + DIVIDER_T + EXTRA_WIDTH
 OUTER_W = INNER_W + 2 * WALL_T
 OUTER_H = max(FLOOR_Z + CAV_H + LID_THICKNESS, HOLE_DEPTH + 2.0)
 
 Z_SLOT = OUTER_H - LID_THICKNESS
+
+if CRATE:
+    _crate_top = FLOOR_Z + CRATE["T"]
+    _cart_top = FLOOR_Z - RAISED_DEPTH + C["oal"]
+    App.Console.PrintMessage("Krate overside Z=%.2f, rad 6 flate Z=%.2f, høyeste patron Z=%.2f, lokk Z=%.2f\n" % (
+        _crate_top, Z_SLOT - STRIP_STEP_DOWN, _cart_top, Z_SLOT + CLEARANCE))
+    if _cart_top > Z_SLOT:
+        App.Console.PrintWarning("Patronene i kraten treffer lokket (%.2f mm for høyt) - "
+                                 "senk EXPOSED_LOW_ROW/STAGGER.\n" % (_cart_top - Z_SLOT))
 ZB = Z_SLOT + CLEARANCE
-GRIP_X = OUTER_L - 15.0
+GRIP_X = (GRIP_FROM_END, OUTER_L - GRIP_FROM_END)
 
 # ----------------------------------------------------------------------------
 # HJELPEFUNKSJONER
@@ -231,10 +261,9 @@ def prism_xz(points_xz, y0, length):
 # ----------------------------------------------------------------------------
 box_outer = Part.makeBox(OUTER_L, OUTER_W, OUTER_H)
 
-box_outer = try_op("Avrunding lukket ende", lambda s: s.makeFillet(
-    OUTER_FILLET, [e for e in s.Edges if is_vertical(e) and all_at(e, "X", 0.0)]), box_outer)
-box_outer = try_op("Fase åpen ende", lambda s: s.makeChamfer(
-    EDGE_CHAMFER, [e for e in s.Edges if is_vertical(e) and all_at(e, "X", OUTER_L)]), box_outer)
+box_outer = try_op("Avrunding hjørner", lambda s: s.makeFillet(
+    OUTER_FILLET, [e for e in s.Edges if is_vertical(e)
+                   and (all_at(e, "X", 0.0) or all_at(e, "X", OUTER_L))]), box_outer)
 box_outer = try_op("Fase bunn", lambda s: s.makeChamfer(
     EDGE_CHAMFER, [e for e in s.Edges if all_at(e, "Z", 0.0)]), box_outer)
 box_outer = try_op("Fase topp", lambda s: s.makeChamfer(
@@ -250,9 +279,13 @@ if LIGHTEN_PANELS:
             prof = [(-0.5, _z0), (_D, _z0), (_D, _z1 - _D), (0.0, _z1), (-0.5, _z1)]
             ranges = [(_m, OUTER_L - _m)]
             if FINGER_NOTCH:
-                _nx0 = WALL_T + (CCI_LENGTH - NOTCH_W) / 2.0 - 4.0
-                _nx1 = _nx0 + NOTCH_W + 8.0
-                ranges = [(_m, _nx0), (_nx1, OUTER_L - _m)]
+                ranges = []
+                _xa = _m
+                for _cx0 in COMP_X0:
+                    _nx0 = _cx0 + (CCI_LENGTH - NOTCH_W) / 2.0 - 4.0
+                    ranges.append((_xa, _nx0))
+                    _xa = _nx0 + NOTCH_W + 8.0
+                ranges.append((_xa, OUTER_L - _m))
             panel_cuts = []
             for (xa, xb) in ranges:
                 panel_cuts.append(prism_yz(prof, xa, xb - xa))
@@ -267,17 +300,25 @@ if LIGHTEN_PANELS:
     except Exception:
         pass
 
-cavity = Part.makeBox(CCI_LENGTH, CCI_WIDTH, OUTER_H - FLOOR_Z + 1.0,
-                      V(WALL_T, WALL_T, FLOOR_Z))
+# Ett eskerom per krate; materialet mellom dem blir skilleveggen
+cavity = Part.makeCompound([Part.makeBox(CCI_LENGTH, CCI_WIDTH, OUTER_H - FLOOR_Z + 1.0,
+                                         V(x0, WALL_T, FLOOR_Z)) for x0 in COMP_X0])
+if CRATE_DIVIDER_H is not None and NUM_CRATES > 1:
+    _div_cuts = [Part.makeBox(CRATE_DIVIDER_T + 0.2, CCI_WIDTH, Z_SLOT - FLOOR_Z - CRATE_DIVIDER_H + 0.1,
+                              V(x0 + CCI_LENGTH - 0.1, WALL_T, FLOOR_Z + CRATE_DIVIDER_H))
+                 for x0 in COMP_X0[:-1]]
+    if FLOOR_Z + CRATE_DIVIDER_H < Z_SLOT:
+        cavity = Part.makeCompound(cavity.Solids + _div_cuts)
 
-slot = Part.makeBox(OUTER_L - WALL_T + 1.0, INNER_W, LID_THICKNESS + 1.0,
-                    V(WALL_T, WALL_T, Z_SLOT))
+# Lokksporet går gjennom begge ender, så lokket kan skyves ut begge veier
+slot = Part.makeBox(OUTER_L + 2.0, INNER_W, LID_THICKNESS + 1.0,
+                    V(-1.0, WALL_T, Z_SLOT))
 
 y_divider_start = WALL_T + CCI_WIDTH
 width_to_cut = DIVIDER_T + EXTRA_WIDTH
 
 divider_cutout = Part.makeBox(
-    CCI_LENGTH, width_to_cut, STRIP_STEP_DOWN,
+    INNER_L, width_to_cut, STRIP_STEP_DOWN,
     V(WALL_T, y_divider_start, Z_SLOT - STRIP_STEP_DOWN)
 )
 
@@ -291,34 +332,35 @@ groove_l = [
     (y_o, ZB + RAIL_H + CLEARANCE),
     (WALL_T + OV, ZB + RAIL_H + CLEARANCE),
 ]
-groove_len = OUTER_L - WALL_T + 1.0
-groove_left = prism_yz(groove_l, WALL_T, groove_len)
-groove_right = prism_yz(mirror_y(groove_l), WALL_T, groove_len)
+groove_len = OUTER_L + 2.0
+groove_left = prism_yz(groove_l, -1.0, groove_len)
+groove_right = prism_yz(mirror_y(groove_l), -1.0, groove_len)
 
 box_shape = box_outer.cut(cavity).cut(slot).cut(divider_cutout).cut(groove_left).cut(groove_right)
 
-# 1. LIRKESPOR (Pry notch) for skrutrekker/kniv/nøkkel
+# 1. LIRKESPOR (Pry notch) for skrutrekker/kniv/nøkkel, i begge endeveggene
 if PRY_NOTCH:
-    pry_x0 = OUTER_L - PRY_NOTCH_DEPTH
     pry_y0 = (OUTER_W - PRY_NOTCH_W) / 2.0
     pry_z0 = Z_SLOT - PRY_NOTCH_HEIGHT
-    pry_cut = Part.makeBox(PRY_NOTCH_DEPTH + 1.0, PRY_NOTCH_W, PRY_NOTCH_HEIGHT + 1.0, V(pry_x0, pry_y0, pry_z0))
-    box_shape = box_shape.cut(pry_cut)
+    for pry_x0 in (OUTER_L - PRY_NOTCH_DEPTH, -1.0):
+        pry_cut = Part.makeBox(PRY_NOTCH_DEPTH + 1.0, PRY_NOTCH_W, PRY_NOTCH_HEIGHT + 1.0, V(pry_x0, pry_y0, pry_z0))
+        box_shape = box_shape.cut(pry_cut)
 
 # 2. Fingerspor
 if FINGER_NOTCH:
-    notch_x = WALL_T + (CCI_LENGTH - NOTCH_W) / 2.0
     notch_h = max(min(CCI_HEIGHT + 1.0, Z_SLOT - FLOOR_Z - NOTCH_MIN_WALL_ABOVE), 1.0)
-    notch_front = Part.makeBox(NOTCH_W, NOTCH_DEPTH_FRONT + 0.5, notch_h,
-                               V(notch_x, WALL_T - NOTCH_DEPTH_FRONT, FLOOR_Z))
-    notch_rear = Part.makeBox(NOTCH_W, NOTCH_DEPTH_REAR + 0.5, notch_h,
-                              V(notch_x, y_divider_start - 0.5, FLOOR_Z))
-    box_shape = box_shape.cut(notch_front).cut(notch_rear)
+    for x0 in COMP_X0:
+        notch_x = x0 + (CCI_LENGTH - NOTCH_W) / 2.0
+        notch_front = Part.makeBox(NOTCH_W, NOTCH_DEPTH_FRONT + 0.5, notch_h,
+                                   V(notch_x, WALL_T - NOTCH_DEPTH_FRONT, FLOOR_Z))
+        notch_rear = Part.makeBox(NOTCH_W, NOTCH_DEPTH_REAR + 0.5, notch_h,
+                                  V(notch_x, y_divider_start - 0.5, FLOOR_Z))
+        box_shape = box_shape.cut(notch_front).cut(notch_rear)
 
 # ----------------------------------------------------------------------------
 # PATRONHULL GENERERING
 # ----------------------------------------------------------------------------
-x_start = WALL_T + (CCI_LENGTH - (NUM_COLS - 1) * PITCH_X) / 2.0 + CRATE_HOLE_OFFSET_X
+x_starts = [x0 + (CCI_LENGTH - (NUM_COLS - 1) * PITCH_X) / 2.0 + CRATE_HOLE_OFFSET_X for x0 in COMP_X0]
 y_start = WALL_T + (CCI_WIDTH - (NUM_ROWS - 1) * PITCH_Y) / 2.0 + CRATE_HOLE_OFFSET_Y
 y_strip = y_divider_start + DIVIDER_T + EXTRA_WIDTH / 2.0
 r_hole = HOLE_D / 2.0
@@ -340,19 +382,20 @@ def is_raised(r, i):
 
 tools = []
 z_strip_top = Z_SLOT - STRIP_STEP_DOWN
-for i in range(NUM_COLS):
-    if STAGGER_MODE == "checker":
-        exposed = STRIP_EXPOSED_HEIGHT if is_raised(NUM_ROWS, i) else STRIP_EXPOSED_HEIGHT - STRIP_STAGGER
-    else:
-        exposed = STRIP_EXPOSED_HEIGHT
-    strip_depth = max(C["oal"] - exposed, 5.0)
-    tools.append(make_hole_tool(x_start + i * PITCH_X, y_strip, z_strip_top, strip_depth))
+for x_start in x_starts:
+    for i in range(NUM_COLS):
+        if STAGGER_MODE == "checker":
+            exposed = STRIP_EXPOSED_HEIGHT if is_raised(NUM_ROWS, i) else STRIP_EXPOSED_HEIGHT - STRIP_STAGGER
+        else:
+            exposed = STRIP_EXPOSED_HEIGHT
+        strip_depth = max(C["oal"] - exposed, 5.0)
+        tools.append(make_hole_tool(x_start + i * PITCH_X, y_strip, z_strip_top, strip_depth))
 
-if POCKETS_IN_CAVITY:
-    for r in range(NUM_ROWS):
-        for i in range(NUM_COLS):
-            depth = RAISED_DEPTH if is_raised(r, i) else POCKET_DEPTH_E
-            tools.append(make_hole_tool(x_start + i * PITCH_X, y_start + r * PITCH_Y, FLOOR_Z, depth))
+    if POCKETS_IN_CAVITY:
+        for r in range(NUM_ROWS):
+            for i in range(NUM_COLS):
+                depth = RAISED_DEPTH if is_raised(r, i) else POCKET_DEPTH_E
+                tools.append(make_hole_tool(x_start + i * PITCH_X, y_start + r * PITCH_Y, FLOOR_Z, depth))
 
 try:
     box_shape = box_shape.cut(Part.makeCompound(tools))
@@ -360,10 +403,11 @@ except Exception:
     for t in tools:
         box_shape = box_shape.cut(t)
 
-# 3. DOBLE LÅSEBULER (DETENTS) - Lås både foran og bak på skinnene
+# 3. LÅSEBULER (DETENTS) - speilet i begge ender av skinnene
 y_mid_l = y_p - GROOVE_W / 2.0
 z_ceiling = ZB + RAIL_H + CLEARANCE
-detent_positions = [WALL_T + BUMP_X_REAR, WALL_T + BUMP_X_FRONT]
+detent_positions = sorted({round(x, 6) for d in BUMP_X_FROM_END
+                           for x in (WALL_T + d, OUTER_L - WALL_T - d)})
 
 for x_pos in detent_positions:
     for yb in (y_mid_l, OUTER_W - y_mid_l):
@@ -372,8 +416,9 @@ for x_pos in detent_positions:
 # ----------------------------------------------------------------------------
 # SKYVELOKK
 # ----------------------------------------------------------------------------
-x_l0 = WALL_T + CLEARANCE
-lid_len = OUTER_L - WALL_T - 2 * CLEARANCE
+# Lokket er like langt som boksen (begge ender åpne)
+x_l0 = 0.0
+lid_len = OUTER_L
 plate = Part.makeBox(lid_len, OUTER_W - 2 * y_p, OUTER_H - ZB, V(x_l0, y_p, ZB))
 plate = try_op("Lokk fase topp", lambda s: s.makeChamfer(
     LID_CHAMFER, [e for e in s.Edges if all_at(e, "Z", OUTER_H)]), plate)
@@ -393,8 +438,9 @@ for x_pos in detent_positions:
     for yb in (y_mid_l, OUTER_W - y_mid_l):
         lid_shape = lid_shape.cut(Part.makeSphere(DIMPLE_R, V(x_pos, yb, ZB + RAIL_H)))
 
-finger_grip = Part.makeCylinder(GRIP_R, GRIP_DEPTH, V(GRIP_X, OUTER_W / 2.0, OUTER_H), DOWN)
-lid_shape = lid_shape.cut(finger_grip)
+for gx in GRIP_X:
+    finger_grip = Part.makeCylinder(GRIP_R, GRIP_DEPTH, V(gx, OUTER_W / 2.0, OUTER_H), DOWN)
+    lid_shape = lid_shape.cut(finger_grip)
 
 # ----------------------------------------------------------------------------
 # DYNAMISK TEKSTGENERERING
@@ -506,8 +552,8 @@ def make_back_wall_text_cutter(text, size, depth, cy, cz_bottom, max_width, x_wa
 # Generer tekst på lokket
 if LID_TEXT.strip():
     try:
-        x_min = x_l0 + 3.0
-        x_max = GRIP_X - GRIP_R - 3.0
+        x_min = GRIP_X[0] + GRIP_R + 3.0
+        x_max = GRIP_X[1] - GRIP_R - 3.0
         avail = x_max - x_min
         cutter = make_text_cutter(LID_TEXT, TEXT_SIZE, TEXT_DEPTH, (x_min + x_max) / 2.0, OUTER_W / 2.0, OUTER_H, avail)
         if cutter is not None:
@@ -560,4 +606,10 @@ if EXPORT_DIR:
     except Exception as e:
         App.Console.PrintError("STL-eksport feilet: %s\n" % e)
 
-App.Console.PrintMessage("Ferdig. Boks v2.16 for %s generert.\n" % CALIBER)
+bb = box_final.BoundBox
+App.Console.PrintMessage("Boks: gyldig=%s, volum=%.0f mm3, %.1f x %.1f x %.1f mm\n" % (
+    box_final.isValid(), box_final.Volume, bb.XLength, bb.YLength, bb.ZLength))
+bb = lid_final.BoundBox
+App.Console.PrintMessage("Lokk: gyldig=%s, volum=%.0f mm3, %.1f x %.1f x %.1f mm\n" % (
+    lid_final.isValid(), lid_final.Volume, bb.XLength, bb.YLength, bb.ZLength))
+App.Console.PrintMessage("Ferdig. Boks v2.17 for %s (%d esker) generert.\n" % (CALIBER, NUM_CRATES))
