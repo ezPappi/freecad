@@ -32,7 +32,7 @@ V = App.Vector
 # ----------------------------------------------------------------------
 # PARAMETERE (alle mål i mm)
 # ----------------------------------------------------------------------
-BODY_DIA      = 8.75   # MEASURE: tappens diameter (hylsens indre dia. i munningen minus klaring)
+BODY_DIA      = 8.85   # MEASURE: tappens diameter (hylsens indre dia. i munningen minus klaring)
 INSERT_DEPTH  = 7.0    # hvor langt tappen går ned i hylsa
 BODY_CHAMFER  = 0.4    # innføringsfas på tappens underkant
 OGIVE_DIA     = 9.40   # MEASURE: krage/nese-diameter (litt under hylsens ytre dia. 9.65 så den ikke henger i matingen)
