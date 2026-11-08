@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Snap cap (tørrtrenings-/slagsikring-innsats) for 9x19 mm hylse  -  v1.0
+Snap cap (tørrtrenings-/slagsikring-innsats) for 9x19 mm hylse  -  v1.1
+
+v1.1: nesen var 9.35 mm (bredere enn ekte kule 9.02) og kilte seg i
+      kammerets overgang/lede foran hylsemunningen. OGIVE_DIA er nå 8.85,
+      dvs. under kulediameter med margin for FDM-overmål.
 
 Dummy-"prosjektil" som skyves inn i hylsemunningen. Delen består av
   * en sylindrisk tapp (BODY_DIA) som sitter i hylsemunningen,
-  * en liten krage/flens (OGIVE_DIA) som hviler mot hylsemunningen,
+  * en nese (OGIVE_DIA) som MÅ være <= kulediameter (9.02) for å gå i kammeret,
   * en avrundet nese (ellipse eller tangent-ogive) som gir riktig OAL.
 
 Bygget som ett omdreiningslegeme (revolve) av en 2D-profil, ren Part/OCC.
-Printes stående med tappen ned mot byggeplata (ingen støtte nødvendig;
-kragen er bare ca. 0.3-0.5 mm overheng).
+Printes stående med tappen ned mot byggeplata (ingen støtte nødvendig).
 
 Antakelser (MÅL på ditt eget hylse og juster!):
   - 9x19: hylse-lengde 19.15, munningens ytre diameter ca. 9.65 mm,
@@ -32,11 +35,11 @@ V = App.Vector
 # ----------------------------------------------------------------------
 # PARAMETERE (alle mål i mm)
 # ----------------------------------------------------------------------
-BODY_DIA      = 8.75   # MEASURE: tappens diameter (hylsens indre dia. i munningen minus klaring)
-INSERT_DEPTH  = 7.0    # hvor langt tappen går ned i hylsa
+BODY_DIA      = 8.98   # MEASURE: tappens diameter (hylsens indre dia. i munningen minus klaring)
+INSERT_DEPTH  = 15.0   # hvor langt tappen går ned i hylsa
 BODY_CHAMFER  = 0.4    # innføringsfas på tappens underkant
-OGIVE_DIA     = 9.40   # MEASURE: krage/nese-diameter (litt under hylsens ytre dia. 9.65 så den ikke henger i matingen)
-CASE_LENGTH   = 19.15  # 9x19 hylselengde (kun til OAL-beregning)
+OGIVE_DIA     = 8.85   # MEASURE: nesediameter. Under ekte kule (9.02) ellers kiler den seg i kammerets lede; skyv på en skyvelære etter print
+CASE_LENGTH   = 18.8   # 9x19 hylselengde (kun til OAL-beregning)
 OAL           = 29.70  # ønsket total patronlengde (hylse + nese)
 NOSE_LEN      = None   # None = OAL - CASE_LENGTH (ca. 10.55)
 NOSE_SHAPE    = "ELLIPSE"   # "ELLIPSE" (rund, som bildet) eller "TANGENT" (spissere ogive)
